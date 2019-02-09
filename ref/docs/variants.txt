@@ -1,0 +1,38 @@
+v1
+    Reference software:
+        ascon128v12
+
+    Architecture description:
+        Single-round iterative architecture with a registered output.
+
+    Key setup time:
+        1
+    Execution time of authenticated encryption:
+        12+Na*8+(Nm-1)*8+12
+    Execution time of authenticated decryption:
+        12+Na*8+(Nc-1)*8+12
+
+    Non-default generic settings:
+        In hls_interface.h, #define ASCON128a 0
+        and regenerate the CipherCore module.
+
+
+v2
+    Reference software:
+        ascon128av12
+
+    Architecture description:
+        Single-round iterative architecture with a registered output.
+
+    Key setup time:
+        1
+    Execution time of authenticated encryption:
+        12+Na*10+(Nm-1)*10+12
+    Execution time of authenticated decryption:
+        12+Na*10+(Nc-1)*10+12
+
+    Non-default generic settings:
+        In hls_interface.h, #define ASCON128a 1
+        and regenerate the CipherCore module.
+        
+    Note: This is the core that's available in the distribution.
