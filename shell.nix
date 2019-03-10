@@ -1,3 +1,5 @@
+{ cc ? "gcc7" }:
+
 let
   crossSystem = {
     config = "riscv32-elf";
@@ -15,7 +17,10 @@ let
     inherit crossSystem;
   };
 
-  inherit (pkgs) stdenv;
+  stdenv = pkgs.stdenv.override {
+    cc = pkgs.buildPackages.${cc};
+  };
+
   inherit (pkgs.buildPackages) autoreconfHook fetchgit gdb lib screen
     writeShellScriptBin;
 
