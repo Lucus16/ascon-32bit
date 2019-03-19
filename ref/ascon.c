@@ -1,10 +1,5 @@
 #include <stdio.h>
 #include "api.h"
-#include "crypto_aead.h"
-
-typedef unsigned char u8;
-typedef unsigned long long u64;
-typedef long long i64;
 
 //#define PRINTSTATE
 //#define PRINTWORDS
@@ -49,7 +44,7 @@ void store64(u8* S, u64 x) {
 void permutation(u8* S, int start, int rounds) {
   int i;
   u64 x0, x1, x2, x3, x4;
-  u64 t0, t1, t2, t3, t4;
+  u64 t04, t12, t34, tswap;
   load64(&x0, S + 0);
   load64(&x1, S + 8);
   load64(&x2, S + 16);
@@ -61,12 +56,22 @@ void permutation(u8* S, int start, int rounds) {
     x2 ^= ((0xfull - i) << 4) | i;
     printwords(" addition of round constant:", x0, x1, x2, x3, x4);
     // substitution layer
-    x0 ^= x4;    x4 ^= x3;    x2 ^= x1;
-    t0  = x0;    t1  = x1;    t2  = x2;    t3  = x3;    t4  = x4;
-    t0 =~ t0;    t1 =~ t1;    t2 =~ t2;    t3 =~ t3;    t4 =~ t4;
-    t0 &= x1;    t1 &= x2;    t2 &= x3;    t3 &= x4;    t4 &= x0;
-    x0 ^= t1;    x1 ^= t2;    x2 ^= t3;    x3 ^= t4;    x4 ^= t0;
-    x1 ^= x0;    x0 ^= x4;    x3 ^= x2;    x2 =~ x2;
+    t12 = x1 ^ x2;
+    t04 = x0 ^ x4;
+    t34 = x3 ^ x4;
+    x4 = x3 | ~x4;
+    x4 ^= t12;
+    x3 ^= x1;
+    x3 |= t12;
+    x3 ^= t04;
+    x2 ^= t04;
+    x2 |= x1;
+    x2 ^= t34;
+    x1 = x1 & ~t04;
+    x1 ^= t34;
+    x0 |= t34;
+    x0 ^= t12;
+    tswap = x0; x0 = x2; x2 = x4; x4 = x1; x1 = x3; x3 = tswap;
     printwords(" substitution layer:", x0, x1, x2, x3, x4);
     // linear diffusion layer
     x0 ^= ROTR(x0, 19) ^ ROTR(x0, 28);
@@ -84,12 +89,12 @@ void permutation(u8* S, int start, int rounds) {
 }
 
 int crypto_aead_encrypt(
-    unsigned char *c, unsigned long long *clen,
-    const unsigned char *m, unsigned long long mlen,
-    const unsigned char *ad, unsigned long long adlen,
-    const unsigned char *nsec,
-    const unsigned char *npub,
-    const unsigned char *k) {
+    u8 *c, u64 *clen,
+    const u8 *m, u64 mlen,
+    const u8 *ad, u64 adlen,
+    const u8 *nsec,
+    const u8 *npub,
+    const u8 *k) {
 
   int klen = CRYPTO_KEYBYTES;
   //int nlen = CRYPTO_NPUBBYTES;
@@ -179,12 +184,12 @@ int crypto_aead_encrypt(
 }
 
 int crypto_aead_decrypt(
-    unsigned char *m, unsigned long long *mlen,
-    unsigned char *nsec,
-    const unsigned char *c, unsigned long long clen,
-    const unsigned char *ad, unsigned long long adlen,
-    const unsigned char *npub,
-    const unsigned char *k) {
+    u8 *m, u64 *mlen,
+    u8 *nsec,
+    const u8 *c, u64 clen,
+    const u8 *ad, u64 adlen,
+    const u8 *npub,
+    const u8 *k) {
 
   *mlen = 0;
   if (clen < CRYPTO_KEYBYTES)

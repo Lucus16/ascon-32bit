@@ -1,0 +1,23 @@
+<h1 id="optimizing-ascon-on-32-bits-architectures">Optimizing Ascon on 32-bits architectures</h1>
+<p>I’m Lars Jellema, my supervisors are Peter Schwabe and Christoph Dobraunig. My thesis is about optimizing Ascon for 32-bits architectures, which is in the field of cryptographic engineering and optimization. Ascon is designed to run fast on 64-bits architectures. The purpose of this thesis is to show that Ascon is a good contender in the Caesar competition because it can even be made fast on 32-bits architectures. I will look at the three separate phases of the Ascon inner loop and try to optimize each one on a variety of 32-bits architectures, starting with RISC-V. I will then compare the different techniques that are effective on different architectures. I expect to be able to save only a few percent on RISC-V, compared to a trivial implementation, but potentially more on more complicated 32-bit architectures.</p>
+<h1 id="planning">Planning</h1>
+<ul>
+<li>week 9 - performance and correctness test environment</li>
+<li>week 10 - basic riscv implementation and first optimization</li>
+<li>week 11 - try using gnu superoptimizer</li>
+<li>week 12 - set up tools and test for second architecture</li>
+<li>week 13 - basic implementation</li>
+<li>week 14 - design optimizations</li>
+<li>week 15 - implement optimizations</li>
+<li>week 16 - set up tools and test for third architecture</li>
+<li>week 17 - basic implementation</li>
+<li>week 18 - break</li>
+<li>week 19 - design optimizations</li>
+<li>week 20 - implement optimizations</li>
+<li>week 21 - compare possible optimizations and tradeoffs</li>
+<li>week 22 - submit preliminary thesis document</li>
+<li>week 23 - prepare final presentation</li>
+<li>week 24 - handle feedback</li>
+<li>week 25 - submit final thesis document</li>
+<li>week 26 - final presentation</li>
+</ul>

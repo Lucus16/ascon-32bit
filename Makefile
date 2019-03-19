@@ -23,6 +23,8 @@ asmwrapper.elf: asmfunction.S.o asmwrapper.c.o
 
 cyclecount.elf: getcycles.S.o cyclecount.c.o
 
+test.elf: test.c.o ref/ascon.c.o
+
 %.elf: $(LDSCRIPT) $(LIBWRAP) sdk/entry.S.o sdk/start.S.o sdk/init.c.o
 	$(CC) $(CFLAGS) $(INCLUDES) $(filter-out $(LIBWRAP) $(LDSCRIPT), $^) \
 		-o $@ $(LDFLAGS)
