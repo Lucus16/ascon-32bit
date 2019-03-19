@@ -12,7 +12,7 @@ def hex_to_c(digits):
 
 def lens_to_c(vecs, i, name):
     start = 'const unsigned long long {}_sizes[] = '.format(name) + '{\n    '
-    middle = ' '.join('{},'.format(len(vec[i])) for vec in vecs)
+    middle = ' '.join('{},'.format(len(vec[i]) // 2) for vec in vecs)
     end = '\n};\n\n'
     return start + middle + end
 
@@ -20,6 +20,9 @@ def vecs_to_c(vecs, i, name):
     sizes = ''
     if any(len(vec[i]) != len(vecs[0][i]) for vec in vecs):
         sizes = lens_to_c(vecs, i, name)
+    else:
+        sizes = '#define {}_SIZE {}\n'.format(name.upper(), len(vecs[0][i]) // 2)
+
     start = 'const unsigned char {}s[][{}] = '.format(name,
             max(len(vec[i]) for vec in vecs)) + '{\n    '
     middle = ' '.join(hex_to_c(digits[i]) for digits in vecs)
