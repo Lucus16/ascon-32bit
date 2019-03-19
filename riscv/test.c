@@ -2,7 +2,7 @@
 
 #include "api.h"
 #include "crypto_aead.h"
-#include "testcases/ascon128.h"
+#include "tests.h"
 
 int run_testcase(size_t tc) {
     unsigned char encrypt_result[cipher_text_sizes[tc] + CRYPTO_ABYTES];

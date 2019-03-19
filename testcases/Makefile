@@ -1,4 +1,5 @@
-all: ascon128a.h ascon128.h
+TESTCASE_DIR ?= .
 
-%.h: ../testcases/generate.py %.txt
+%/tests.h: $(TESTCASE_DIR)/generate.py %.txt
+	mkdir -p $*
 	python3 $< $*.txt $* > $@
