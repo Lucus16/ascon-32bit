@@ -32,8 +32,9 @@ LDFLAGS       += -static -T$(LDSCRIPT) -nostartfiles \
 SDK_OBJS       = build/entry.o build/start.o build/init.o
 
 build/$(ASCON)-test.o: test.c ../testcases/$(ASCON)/tests.h
-build/$(CONFIG).elf: build/$(ASCON)-test.o build/$(CONFIG).o
+build/$(CONFIG).elf: build/$(ASCON)-test.o build/$(CONFIG).o build/cycles.o
 
+build/cycles.o: cycles.s
 build/$(CONFIG).o: $(REF_DIR)/ascon.c
 build/entry.o: sdk/entry.S
 build/start.o: sdk/start.S

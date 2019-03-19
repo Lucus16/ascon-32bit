@@ -4,11 +4,14 @@
 #include "crypto_aead.h"
 #include "tests.h"
 
+extern unsigned int getcycles();
+
 int run_testcase(size_t tc) {
     unsigned char encrypt_result[cipher_text_sizes[tc] + CRYPTO_ABYTES];
     unsigned char decrypt_result[plain_text_sizes[tc]];
     unsigned long long encrypt_result_len, decrypt_result_len;
-    int return_value = 0;
+    int return_value = 0, decrypt_rv;
+    unsigned int encrypt_cycles, decrypt_cycles;
 
     crypto_aead_encrypt(
             encrypt_result, &encrypt_result_len,
@@ -18,13 +21,33 @@ int run_testcase(size_t tc) {
             pub_msg_nums[tc],
             keys[tc]);
 
-    int decrypt_rv = crypto_aead_decrypt(
+    encrypt_cycles = -getcycles();
+    crypto_aead_encrypt(
+            encrypt_result, &encrypt_result_len,
+            plain_texts[tc], plain_text_sizes[tc],
+            additionals[tc], additional_sizes[tc],
+            NULL,
+            pub_msg_nums[tc],
+            keys[tc]);
+    encrypt_cycles += getcycles();
+
+    decrypt_rv = crypto_aead_decrypt(
             decrypt_result, &decrypt_result_len,
             NULL,
             encrypt_result, cipher_text_sizes[tc] + CRYPTO_ABYTES,
             additionals[tc], additional_sizes[tc],
             pub_msg_nums[tc],
             keys[tc]);
+
+    decrypt_cycles = -getcycles();
+    decrypt_rv = crypto_aead_decrypt(
+            decrypt_result, &decrypt_result_len,
+            NULL,
+            encrypt_result, cipher_text_sizes[tc] + CRYPTO_ABYTES,
+            additionals[tc], additional_sizes[tc],
+            pub_msg_nums[tc],
+            keys[tc]);
+    decrypt_cycles += getcycles();
 
     for (size_t i = 0; i < cipher_text_sizes[tc]; i++) {
         if (encrypt_result[i] != cipher_texts[tc][i]) {
@@ -59,7 +82,10 @@ int run_testcase(size_t tc) {
     }
 
     if (return_value == 0) {
-        printf("%2d Test passed!\n", tc);
+        printf("%2d Test passed! %4lld bytes, encrypt in %6d, "
+                "decrypt in %6d cycles.\n",
+                tc, plain_text_sizes[tc] + additional_sizes[tc],
+                encrypt_cycles, decrypt_cycles);
     }
 
     return 0;
