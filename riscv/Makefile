@@ -1,6 +1,3 @@
-.PHONY: all
-all: test.elf
-
 PREFIX        ?= riscv64-unknown-elf
 
 AR             = $(PREFIX)-ar
@@ -8,14 +5,19 @@ CC             = $(PREFIX)-gcc
 GDB            = $(PREFIX)-gdb
 
 ASCON         ?= ascon128
-OPTIMIZED     ?= ref
+IMPL          ?= ref
+
+CONFIG         = $(ASCON)-$(IMPL)
+
+.PHONY: all
+all: build/$(CONFIG).elf
 
 include sdk/libwrap/libwrap.mk
 
 TESTCASE_DIR   = ../testcases
 include $(TESTCASE_DIR)/Makefile
 
-REF_DIR        = ../crypto_aead/$(ASCON)v12/$(OPTIMIZED)
+REF_DIR        = ../crypto_aead/$(ASCON)v12/$(IMPL)
 
 LDSCRIPT      := sdk/flash.lds
 INCLUDES      := -Isdk/include -I$(TESTCASE_DIR)/$(ASCON) -I$(REF_DIR)
@@ -27,24 +29,25 @@ CFLAGS        += -O3 -fno-builtin-printf \
 LDFLAGS       += -static -T$(LDSCRIPT) -nostartfiles \
 				 -Lsdk -Wl,--gc-sections
 
-test.c.o: ../testcases/$(ASCON)/tests.h
+SDK_OBJS       = build/entry.o build/start.o build/init.o
 
-test.elf: test.c.o $(REF_DIR)/ascon.c.o
+build/$(ASCON)-test.o: test.c ../testcases/$(ASCON)/tests.h
+build/$(CONFIG).elf: build/$(ASCON)-test.o build/$(CONFIG).o
 
-%.elf: $(LDSCRIPT) $(LIBWRAP) sdk/entry.S.o sdk/start.S.o sdk/init.c.o
+build/$(CONFIG).o: $(REF_DIR)/ascon.c
+build/entry.o: sdk/entry.S
+build/start.o: sdk/start.S
+build/init.o: sdk/init.c
+
+build/%.o:
+	mkdir -p build
+	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+
+build/$(CONFIG).elf: $(LDSCRIPT) $(LIBWRAP) $(SDK_OBJS)
+	mkdir -p build
 	$(CC) $(CFLAGS) $(INCLUDES) $(filter-out $(LIBWRAP) $(LDSCRIPT), $^) \
 		-o $@ $(LDFLAGS)
 
-%.c.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
-
-%.s.o: %.s
-	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
-
-%.S.o: %.S
-	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
-
 .PHONY: clean
 clean:
-	rm -f $(LIBWRAP_OBJS) $(LIBWRAP)
-	find -name '*.elf' -o -name '*.o' | xargs rm -f
+	rm -rf $(LIBWRAP_OBJS) $(LIBWRAP) build/

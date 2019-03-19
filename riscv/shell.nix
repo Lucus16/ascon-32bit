@@ -21,8 +21,8 @@ let
     cc = pkgs.buildPackages.${cc};
   };
 
-  inherit (pkgs.buildPackages) autoreconfHook fetchgit gdb lib screen
-    writeShellScriptBin;
+  inherit (pkgs.buildPackages) autoreconfHook fetchgit gdb lib python3
+    screen writeShellScriptBin;
 
   openocd = pkgs.buildPackages.openocd.overrideAttrs (super: {
     nativeBuildInputs = [ autoreconfHook ] ++ super.nativeBuildInputs;
@@ -53,5 +53,5 @@ let
 in stdenv.mkDerivation {
   name = "thesis";
   inherit PREFIX;
-  nativeBuildInputs = [ upload screen ];
+  nativeBuildInputs = [ python3 screen upload ];
 }
