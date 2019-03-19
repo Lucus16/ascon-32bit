@@ -1,0 +1,3 @@
+[submodule "crypto_aead"]
+	path = crypto_aead
+	url = https://github.com/ascon/crypto_aead
