@@ -1,4 +1,4 @@
-{ cc ? "gcc7" }:
+{ cc ? "gcc7", nixpkgs ? import ./nixpkgs.nix }:
 
 let
   crossSystem = {
@@ -13,7 +13,7 @@ let
     };
   };
 
-  pkgs = import <nixpkgs> {
+  pkgs = nixpkgs {
     inherit crossSystem;
   };
 
@@ -46,12 +46,11 @@ let
       -ex "load" \
       -ex "monitor resume" \
       -ex "monitor shutdown" \
-      -ex "quit" && \
-      echo "Succesfully uploaded $1"
+      -ex "quit"
   '';
 
 in stdenv.mkDerivation {
   name = "thesis";
   inherit PREFIX;
-  nativeBuildInputs = [ python3 screen upload ];
+  nativeBuildInputs = [ openocd python3 screen upload ];
 }
