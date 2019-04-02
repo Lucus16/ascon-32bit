@@ -13,13 +13,15 @@ int run_testcase(size_t tc) {
     int return_value = 0, decrypt_rv;
     unsigned int encrypt_cycles, decrypt_cycles;
 
-    crypto_aead_encrypt(
-            encrypt_result, &encrypt_result_len,
-            plain_texts[tc], plain_text_sizes[tc],
-            additionals[tc], additional_sizes[tc],
-            NULL,
-            pub_msg_nums[tc],
-            keys[tc]);
+    // Get the instructions cached.
+    for (size_t i = 0; i < 0x10; i++)
+        crypto_aead_encrypt(
+                encrypt_result, &encrypt_result_len,
+                plain_texts[tc], plain_text_sizes[tc],
+                additionals[tc], additional_sizes[tc],
+                NULL,
+                pub_msg_nums[tc],
+                keys[tc]);
 
     encrypt_cycles = -getcycles();
     crypto_aead_encrypt(
@@ -31,13 +33,15 @@ int run_testcase(size_t tc) {
             keys[tc]);
     encrypt_cycles += getcycles();
 
-    decrypt_rv = crypto_aead_decrypt(
-            decrypt_result, &decrypt_result_len,
-            NULL,
-            encrypt_result, cipher_text_sizes[tc] + CRYPTO_ABYTES,
-            additionals[tc], additional_sizes[tc],
-            pub_msg_nums[tc],
-            keys[tc]);
+    // Get the instructions cached.
+    for (size_t i = 0; i < 0x10; i++)
+        decrypt_rv = crypto_aead_decrypt(
+                decrypt_result, &decrypt_result_len,
+                NULL,
+                encrypt_result, cipher_text_sizes[tc] + CRYPTO_ABYTES,
+                additionals[tc], additional_sizes[tc],
+                pub_msg_nums[tc],
+                keys[tc]);
 
     decrypt_cycles = -getcycles();
     decrypt_rv = crypto_aead_decrypt(
