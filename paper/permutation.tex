@@ -1,0 +1,9 @@
+\subsection{Permutation}
+
+Ascon keeps an internal state of 320 bits. On 64-bit platforms, this is
+usually kept in 5 registers, on 32-bit platforms, it needs to be kept in
+10.
+
+The core of Ascon consists of a transformation applies in several
+rounds. Each round consists of three phases: The addition of the round
+constant, the substitution layer and the linear diffusion layer.
