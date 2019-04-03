@@ -1,4 +1,4 @@
-\subsubsection{Substitution Layer}
+\subsection{Substitution Layer}
 
 The substitution layer in Ascon is a 5-bit S-box which is applied in
 parallel to 64 sets of 5 bits. The paper describes an instruction
@@ -25,13 +25,15 @@ all 32 inputs. This allowed us to recognize patterns in the bit
 sequences. We first eliminated input bits that did not affect the
 output, or only affected the output through a single exclusive or
 operation. Then, we looked at the remaining bit patterns and found short
-and overlapping binary formulas for them. Here, \(o_n\) indicates output
-bit \(n\) and \(i_n\) indicates input bit \(n\).
+and overlapping binary formulas for them. Here, $o_n$ indicates output
+bit $n$ and $i_n$ indicates input bit $n$.
 
 \begin{align}
-\\ o_0 & = i_3 \oplus i_4 \oplus (i_1 \vee (i_0 \oplus i_2 \oplus i_4))
+   o_0 & = i_3 \oplus i_4 \oplus (i_1 \vee (i_0 \oplus i_2 \oplus i_4))
 \\ o_1 & = i_0 \oplus i_4 \oplus ((i_2 \oplus i_1) \vee (i_3 \oplus i_2))
 \\ o_2 & = i_1 \oplus i_2 \oplus (i_3 \vee \neg i_4)
 \\ o_3 & = i_1 \oplus i_2 \oplus (i_0 \vee (i_4 \oplus i_3))
 \\ o_4 & = i_3 \oplus i_4 \oplus (i_1 \wedge \neg (i_4 \oplus i_0))
 \end{align}
+
+\subsubsection{Superoptimization}

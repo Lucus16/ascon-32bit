@@ -1,10 +1,16 @@
 \documentclass{article}
 
 \usepackage{amsmath}
+\usepackage{url}
 
 \title{Optimizing Ascon on 32-bit microcontrollers}
-\author{Lars Jellema \\\\
-\small Supervisors \\ Peter Schwabe \\ Christoph Dobraunig}
+\author{
+    Lars Jellema \\\\
+    \textbf{\small Supervisors} \\
+    \small Peter Schwabe \\
+    \small Christoph Dobraunig
+}
+
 \date{\today}
 
 \begin{document}
@@ -12,16 +18,33 @@
 \maketitle
 
 \begin{abstract}
-Lorem ipsum\cite{nix}
+Lorem ipsum
 \end{abstract}
 
 \clearpage
 
+\section{Introduction}
+
+\subsection{Ascon}
+Ascon\cite{ascon} is an authenticated encryption cipher.
+
+\subsection{RISC-V}
+RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
+
+\subsection{Cortex-M4}
+
+\section{Reproducability}
 \input{nix}
 
+\section{Optimization}
 \input{permutation}
-
 \input{substitution}
+
+\section{Benchmarks}
+
+\section{Conclusion}
+
+\section{Future Work}
 
 \bibliographystyle{ieeetr}
 \bibliography{references}
