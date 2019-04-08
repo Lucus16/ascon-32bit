@@ -1,4 +1,4 @@
-{ cc ? "gcc7", nixpkgs ? import ./nixpkgs.nix }:
+{ cc ? "gcc7", nixpkgs ? import ../nixpkgs.nix }:
 
 let
   crossSystem = {
