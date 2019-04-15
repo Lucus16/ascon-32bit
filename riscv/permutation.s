@@ -1,3 +1,29 @@
+# xorror applies the rotates and xors of the linear diffusion layer to
+# one 64-bit state word. It only changes the values in the temporary and
+# destination registers. Arguments:
+# Destination Low and High
+# Source Low and High, for Rotations 0 and 1
+# These may be swapped to support rotation amounts above 32
+# Temporary registers 0, 1 and 2
+.macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1, t0, t1, t2
+	slli \t0, \sl0, (32 - \r0)
+	srli \t2, \sh0, \r0
+	xor \t0, \t0, \t2
+	slli \t2, \sl1, (32 - \r1)
+	xor \t0, \t0, \t2
+	srli \t2, \sh1, \r1
+	xor \t0, \t0, \t2
+	slli \t1, \sh0, (32 - \r0)
+	srli \t2, \sl0, \r0
+	xor \t1, \t1, \t2
+	slli \t2, \sh1, (32 - \r1)
+	xor \t1, \t1, \t2
+	srli \t2, \sl1, \r1
+	xor \t1, \t1, \t2
+	xor \dl, \sl, \t1
+	xor \dh, \sh, \t0
+.endm
+
 .text
 
 .globl permutation
@@ -40,136 +66,47 @@ permutation:
 round:
 	xor a2, a2, t5
 
-	xor a0, a0, a4
-	xor a4, a4, a3
-	xor a2, a2, a1
-	not t0, a0
-	not t1, a1
-	not t2, a2
-	not t3, a3
-	not t4, a4
-	and t0, t0, a1
-	and t1, t1, a2
-	and t2, t2, a3
-	and t3, t3, a4
-	and t4, t4, a0
-	xor a0, a0, t1
-	xor a1, a1, t2
-	xor a2, a2, t3
-	xor a3, a3, t4
+	xor t0, a1, a2
+	xor t1, a0, a4
+	xor t2, a3, a4
+	not a4, a4
+	or a4, a4, a3
 	xor a4, a4, t0
-	xor a1, a1, a0
-	xor a0, a0, a4
-	xor a3, a3, a2
-	not a2, a2
-
-	xor s0, s0, s4
-	xor s4, s4, s3
-	xor s2, s2, s1
-	not t0, s0
-	not t1, s1
-	not t2, s2
-	not t3, s3
-	not t4, s4
-	and t0, t0, s1
-	and t1, t1, s2
-	and t2, t2, s3
-	and t3, t3, s4
-	and t4, t4, s0
-	xor s0, s0, t1
-	xor s1, s1, t2
-	xor s2, s2, t3
-	xor s3, s3, t4
-	xor s4, s4, t0
-	xor s1, s1, s0
-	xor s0, s0, s4
-	xor s3, s3, s2
-	not s2, s2
-
-	slli t0, a0, 13
-	srli t2, s0, 19
-	xor t0, t0, t2
-	slli t2, a0, 4
-	xor t0, t0, t2
-	srli t2, s0, 28
-	xor t0, t0, t2
-	slli t1, s0, 13
-	srli t2, a0, 19
-	xor t1, t1, t2
-	slli t2, s0, 4
-	xor t1, t1, t2
-	srli t2, a0, 28
-	xor t1, t1, t2
-	xor a0, a0, t1
-	xor s0, s0, t0
-
-	slli t0, s1, 3
-	srli t2, a1, 29
-	xor t0, t0, t2
-	slli t2, s1, 25
-	xor t0, t0, t2
-	srli t2, a1, 7
-	xor t0, t0, t2
-	slli t1, a1, 3
-	srli t2, s1, 29
-	xor t1, t1, t2
-	slli t2, a1, 25
-	xor t1, t1, t2
-	srli t2, s1, 7
-	xor t1, t1, t2
-	xor a1, a1, t1
-	xor s1, s1, t0
-
-	slli t0, a2, 31
-	srli t2, s2, 1
-	xor t0, t0, t2
-	slli t2, a2, 26
-	xor t0, t0, t2
-	srli t2, s2, 6
-	xor t0, t0, t2
-	slli t1, s2, 31
-	srli t2, a2, 1
-	xor t1, t1, t2
-	slli t2, s2, 26
-	xor t1, t1, t2
-	srli t2, a2, 6
-	xor t1, t1, t2
-	xor a2, a2, t1
-	xor s2, s2, t0
-
-	slli t0, a3, 22
-	srli t2, s3, 10
-	xor t0, t0, t2
-	slli t2, a3, 15
-	xor t0, t0, t2
-	srli t2, s3, 17
-	xor t0, t0, t2
-	slli t1, s3, 22
-	srli t2, a3, 10
-	xor t1, t1, t2
-	slli t2, s3, 15
-	xor t1, t1, t2
-	srli t2, a3, 17
-	xor t1, t1, t2
+	xor a3, a3, a1
+	or a3, a3, t0
 	xor a3, a3, t1
-	xor s3, s3, t0
+	xor a2, a2, t1
+	or a2, a2, a1
+	xor a2, a2, t2
+	not t1, t1
+	and a1, a1, t1
+	xor a1, a1, t2
+	or a0, a0, t2
+	xor t3, a0, t0
 
-	slli t0, a4, 25
-	srli t2, s4, 7
-	xor t0, t0, t2
-	slli t2, s4, 23
-	xor t0, t0, t2
-	srli t2, a4, 9
-	xor t0, t0, t2
-	slli t1, s4, 25
-	srli t2, a4, 7
-	xor t1, t1, t2
-	slli t2, a4, 23
-	xor t1, t1, t2
-	srli t2, s4, 9
-	xor t1, t1, t2
-	xor a4, a4, t1
+	xor t0, s1, s2
+	xor t1, s0, s4
+	xor t2, s3, s4
+	not s4, s4
+	or s4, s4, s3
 	xor s4, s4, t0
+	xor s3, s3, s1
+	or s3, s3, t0
+	xor s3, s3, t1
+	xor s2, s2, t1
+	or s2, s2, s1
+	xor s2, s2, t2
+	not t1, t1
+	and s1, s1, t1
+	xor s1, s1, t2
+	or s0, s0, t2
+	xor t4, s0, t0
+
+	xorror a0, s0, a2, s2, a2, s2, 19, a2, s2, 28, t0, t1, t2
+	xorror a2, s2, a4, s4, a4, s4, 1,  a4, s4, 6,  t0, t1, t2
+	xorror a4, s4, a1, s1, a1, s1, 7,  s1, a1, 9,  t0, t1, t2
+	xorror a1, s1, a3, s3, s3, a3, 29, s3, a3, 7,  t0, t1, t2
+	xorror a3, s3, t3, t4, t3, t4, 10, t3, t4, 17, t0, t1, t2
 
 	addi t5, t5, -15
 	bne a5, t5, round
