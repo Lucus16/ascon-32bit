@@ -1,8 +1,8 @@
 .text
 
-.globl permutation_asm
+.globl permutation
 .align 2
-permutation_asm:
+permutation:
 	# a0 state pointer
 	# a1 round constant
 

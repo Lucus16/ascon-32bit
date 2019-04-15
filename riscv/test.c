@@ -8,9 +8,33 @@
 #define REPETITIONS 0x20
 
 extern unsigned int getcycles();
+extern void permutation(unsigned char *state, int start);
 
 int compare_ints(const void *a, const void *b) {
     return *(const int *)b - *(const int *)a;
+}
+
+void permutation_benchmark() {
+    unsigned char buf[40];
+    unsigned int permutation_times[REPETITIONS];
+    unsigned int empty_times[REPETITIONS];
+
+    for (size_t i = 0; i < REPETITIONS; i++) {
+        permutation_times[i] = -getcycles();
+        permutation(buf, 6);
+        permutation_times[i] += getcycles();
+    }
+
+    for (size_t i = 0; i < REPETITIONS; i++) {
+        empty_times[i] = -getcycles();
+        empty_times[i] += getcycles();
+    }
+
+    qsort(permutation_times, REPETITIONS, sizeof(unsigned int), compare_ints);
+    qsort(empty_times, REPETITIONS, sizeof(unsigned int), compare_ints);
+
+    printf("cycles for 6 permutation rounds: %d\n",
+            permutation_times[REPETITIONS / 2] - empty_times[REPETITIONS / 2]);
 }
 
 int run_testcase(size_t tc_index) {
@@ -18,8 +42,8 @@ int run_testcase(size_t tc_index) {
     unsigned char encrypt_result[tc.ct_size + TAG_SIZE];
     unsigned char decrypt_result[tc.pt_size];
     unsigned long long encrypt_result_size, decrypt_result_size;
-    int return_value = 0, decrypt_rv;
     unsigned int encrypt_times[REPETITIONS], decrypt_times[REPETITIONS];
+    int decrypt_rv, return_value = 0;
 
     for (size_t i = 0; i < REPETITIONS; i++) {
         encrypt_times[i] = -getcycles();
@@ -91,6 +115,8 @@ int run_testcase(size_t tc_index) {
 int main() {
     printf("Ready.\n");
     int return_value = 0;
+
+    permutation_benchmark();
 
     for (size_t i = 0; i < TESTCASE_COUNT; i++) {
         return_value |= run_testcase(i);

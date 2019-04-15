@@ -17,7 +17,7 @@ typedef unsigned char u8;
 typedef unsigned long long u64;
 typedef long long i64;
 
-extern void permutation_asm(u8 *state, int start);
+extern void permutation(u8 *state, int start);
 
 //#define PRINTSTATE
 //#define PRINTWORDS
@@ -86,7 +86,7 @@ int crypto_aead_encrypt(
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(SIZE - KLEN + i) = npub[i];
   printstate("initial value:", state);
-  permutation_asm(state, PARAM_A);
+  permutation(state, PARAM_A);
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + KLEN + i) ^= k[i];
   printstate("initialization:", state);
@@ -96,7 +96,7 @@ int crypto_aead_encrypt(
     for (i = 0; i < s; ++i) {
       for (j = 0; j < RATE; ++j)
         REVERSED_STATE(j) ^= A[i * RATE + j];
-      permutation_asm(state, PARAM_B);
+      permutation(state, PARAM_B);
     }
   }
   REVERSED_STATE(SIZE - 1) ^= 1;
@@ -108,7 +108,7 @@ int crypto_aead_encrypt(
       REVERSED_STATE(j) ^= M[i * RATE + j];
       c[i * RATE + j] = REVERSED_STATE(j);
     }
-    permutation_asm(state, PARAM_B);
+    permutation(state, PARAM_B);
   }
   for (j = 0; j < RATE; ++j)
     REVERSED_STATE(j) ^= M[(t - 1) * RATE + j];
@@ -119,7 +119,7 @@ int crypto_aead_encrypt(
   // finalization
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + i) ^= k[i];
-  permutation_asm(state, PARAM_A);
+  permutation(state, PARAM_A);
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + KLEN + i) ^= k[i];
   printstate("finalization:", state);
@@ -172,7 +172,7 @@ int crypto_aead_decrypt(
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(SIZE - KLEN + i) = npub[i];
   printstate("initial value:", state);
-  permutation_asm(state, PARAM_A);
+  permutation(state, PARAM_A);
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + KLEN + i) ^= k[i];
   printstate("initialization:", state);
@@ -182,7 +182,7 @@ int crypto_aead_decrypt(
     for (i = 0; i < s; ++i) {
       for (j = 0; j < RATE; ++j)
         REVERSED_STATE(j) ^= A[i * RATE + j];
-      permutation_asm(state, PARAM_B);
+      permutation(state, PARAM_B);
     }
   }
   REVERSED_STATE(SIZE - 1) ^= 1;
@@ -194,7 +194,7 @@ int crypto_aead_decrypt(
       M[i * RATE + j] = REVERSED_STATE(j) ^ c[i * RATE + j];
       REVERSED_STATE(j) = c[i * RATE + j];
     }
-    permutation_asm(state, PARAM_B);
+    permutation(state, PARAM_B);
   }
   for (j = 0; j < l; ++j)
     M[(t - 1) * RATE + j] = REVERSED_STATE(j) ^ c[(t - 1) * RATE + j];
@@ -206,7 +206,7 @@ int crypto_aead_decrypt(
   // finalization
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + i) ^= k[i];
-  permutation_asm(state, PARAM_A);
+  permutation(state, PARAM_A);
   for (i = 0; i < KLEN; ++i)
     REVERSED_STATE(RATE + KLEN + i) ^= k[i];
   printstate("finalization:", state);
