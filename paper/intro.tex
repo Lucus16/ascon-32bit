@@ -1,0 +1,25 @@
+\section{Introduction}
+
+\subsection{Symmetric Encryption}
+
+In communication, it is often desirable to keep one's messages hidden from third
+parties. This property is called \emph{confidentiality}. In more precise terms,
+confidentiality means that a message is transformed in such a way that
+authorized parties can recover the original message from it, while unauthorized
+parties can not. In symmetric encryption, the authorized parties are defined as
+the parties that know a secret number, called the \emph{key}. The original
+message is called the \emph{plaintext} and the transformed message is called the
+\emph{ciphertext}. The transformation from plaintext to ciphertext is called
+\emph{encryption}, while the transformation back is called \emph{decryption}.
+For symmetric encryption, both of these transformations need the key, which is
+what prevents unauthorized parties from recovering the plaintext.
+
+Although unauthorized parties can't recover the plaintext from the ciphertext,
+they may be able to modify the ciphertext, resulting in a modified plaintext
+after decryption. It is not always possible to prevent such modifications, but
+it is possible to detect them. The property that it is detectable whether a
+message has been changed, is called \emph{integrity}.
+
+\subsection{Ascon}
+
+\subsection{Related Work}

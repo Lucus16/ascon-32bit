@@ -1,6 +1,7 @@
 \documentclass{article}
 
 \usepackage{amsmath}
+\usepackage[page]{appendix}
 \usepackage{url}
 
 \title{Optimizing Ascon on 32-bit microcontrollers}
@@ -23,9 +24,11 @@ Lorem ipsum
 
 \clearpage
 
-\section{Introduction}
+\input{intro}
 
-\subsection{Ascon}
+\section{Preliminaries}
+
+\subsection{Ascon internals}
 Ascon\cite{ascon} is an authenticated encryption cipher.
 
 \subsection{RISC-V}
@@ -33,20 +36,30 @@ RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
 
 \subsection{Cortex-M4}
 
-\section{Reproducability}
-\input{nix}
-
 \section{Optimization}
+
 \input{permutation}
 \input{substitution}
 
 \section{Benchmarks}
 
+\subsection{Method}
+
+\subsection{Results}
+
+\subsection{Comparison to other results}
+
 \section{Conclusion}
 
-\section{Future Work}
+\subsection{Future work}
 
 \bibliographystyle{ieeetr}
 \bibliography{references}
+
+\clearpage
+\begin{appendices}
+\section{Reproducability}
+\input{nix}
+\end{appendices}
 
 \end{document}
