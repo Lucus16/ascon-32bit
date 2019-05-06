@@ -72,14 +72,22 @@ as a tuple of functions $(G, E, D)$, with the following properties:
 \begin{enumerate}
     \item $G \colon R \to K$ is a function that takes a stream of random data and
         produces a key.
-    \item $E \colon R \times K \times A \times M \to C$ is a function that takes
+    \item $E \colon R \times K \times A \times P \to C$ is a function that takes
         a stream of random data, a key, some associated data and a plaintext and
         produces a ciphertext.
-    \item $D \colon K \times A \times C \to M \cup \{ \bot \}$ is a function
+    \item $D \colon K \times A \times C \to P \cup \{ \bot \}$ is a function
         that takes a key, some associated data and a ciphertext and produces a
         plaintext or a failure.
     \item $\forall r_k, r_e \in R\ldotp \forall a \in A\ldotp
-        \forall p \in P\ldotp D(G(r_k), a, E(r_e, G(r_k), a, p)) = p$ 
+        \forall p \in P\ldotp D(G(r_k), a, E(r_e, G(r_k), a, p)) = p$, that is,
+        if a key is generated and used to encrypt a message with some associated
+        data and the ciphertext is passed with the same key and associated data
+        to the decryption function, it should yield the same plaintext.
+    \item never the same twice \ldots
+    \item integrity \ldots
+    \item authenticity \ldots
+    \item confidentiality \ldots
+    \item wrong context \ldots
 \end{enumerate}
 
 \subsection{Ascon}
@@ -89,6 +97,6 @@ resource constrained environments, like embedded devices. It has an internal
 state of just 320 bits, which can be kept in registers on most
 microarchitectures. This ensures moving data between registers and memory is
 kept to a minimum, which is important, as embedded devices usually don't have
-the same amount of caching available as larger systems.
+the same level of caching available as larger systems.
 
 \subsection{Related Work}

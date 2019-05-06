@@ -85,3 +85,111 @@ use of his project to prove that it is not possible to compute the Ascon S-box
 in 10 instructions. Unfortunately, the project did not finish within reasonable
 time for instruction counts larger than 10, so I was unable to verify whether 17
 instructions is the best number possible.
+
+\subsection{Linear diffusion layer}
+
+The linear diffusion layer in Ascon mixes the bits with each of the five state
+words. Each of them is rotated by two different amounts and added with the
+results. For each of the five state words, two different rotation amounts are
+used.
+
+The state words are 64 bits in size, so 64-bit rotations are used. On most
+64-bit architectures, this can be done with just one instruction, but 32-bit
+architectures generally don't have 64-bit rotate instructions.
+
+The most straightforward method of simulating a 64-bit rotate instruction is
+using shifts. By combining a left shift and a right shift, all bits of a single
+machine word can be placed at the correct offset. Because each shift throws
+away some of the bits, it is not possible to simulate a rotate instruction with
+one shift. Because a state word is two machine words in size, four shifts are
+needed in total. After this, there are four intermediate results that need to be
+combined to two resulting machine words. There are several options to combine
+these intermediate results:
+
+Since each bit will be zero in at least one of the two operands, the combining
+instructions can be bitwise or, bitwise exclusive or, or integer addition
+instructions. Since the results will be combined using bitwise exclusive or
+operations, we will use these for combining intermediate shift results as well.
+Because bitwise exclusive or operations are associative, it doesn't matter in
+what order all intermediate results are combined, which gives us more freedom
+during implementation. Bitwise exclusive or can also be seen as bitwise
+addition, or addition without any carries between the bits. I will use
+\emph{bitwise addition} to refer to this operation from here on.
+
+Using shifts means throwing away bits, which is why four of them are needed. It
+would be preferable to use rotate instructions, since they don't throw away
+bits. Unfortunately, rotating both halves of a state word independently does not
+have the same effect as rotating the word as a whole.
+
+This is usually resolved using bit interleaving: By storing even-numbered bits
+in one word and odd-numbered bits in another, a 64-bit rotation can be simulated
+using two 32-bit rotations. For even rotation amounts, both words are rotated by
+half the amount. For odd rotation amounts, the words are rotated by half the
+amount, rounded up and down respectively, and then swapped. The disadvantage is
+that some extra cycles are needed to convert between bit-interleaved
+representation and normal representation.
+
+Unfortunately, the microcontroller we're targeting does not have rotate
+instructions at all. The SiFive HiFive1 does not include the bit manipulation
+extension, which is where RISC-V introduces its rotate instructions. This means
+we're stuck using the straightforward method using four shifts and two bitwise
+additions. The result also needs to be bitwise added back into the original,
+which takes another two instructions, one for each of the machine words. This
+means that handling one rotation amount takes eight instructions in total.
+
+There are five state words which each have two rotations applied to them. This
+means a total of 80 instructions are needed for the linear diffusion layer. On
+32-bit RISC-V, without the bit manipulation extension, it is not possible to do
+better. This is easy to see:
+
+The only method of moving bits to different offsets is the shift instruction,
+and because it throws away bits, there are always two needed to handle 32 bits,
+or one machine word. Therefor, to move all bits into two separate new positions
+for five state words, or ten machine word, a total of 40 shifts are needed. Each
+of these shifts produces an intermediate result and all those intermediate
+results need to be merged back into the unrotated state words.
+
+Each merging instruction takes two operands and produces one result, reducing
+the number of intermediate results by one, so a total of 40 merging instructions
+is needed to merge all intermediate results. On the HiFive1, there are no
+instructions that can merge more than two machine words at a time. This means it
+is not possible to do the linear diffusion layer in less than 80 instructions.
+Figure~\ref{xorror} shows how the rotations for a single state word are
+implemented in RISC-V assembly.
+
+\begin{figure}
+\begin{verbatim}
+.macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1, t0, t1, t2
+        slli \t0, \sl0, (32 - \r0)
+        srli \t2, \sh0, \r0
+        xor \t0, \t0, \t2
+        slli \t2, \sl1, (32 - \r1)
+        xor \t0, \t0, \t2
+        srli \t2, \sh1, \r1
+        xor \t0, \t0, \t2
+        slli \t1, \sh0, (32 - \r0)
+        srli \t2, \sl0, \r0
+        xor \t1, \t1, \t2
+        slli \t2, \sh1, (32 - \r1)
+        xor \t1, \t1, \t2
+        srli \t2, \sl1, \r1
+        xor \t1, \t1, \t2
+        xor \dl, \sl, \t1
+        xor \dh, \sh, \t0
+.endm
+\end{verbatim}
+
+\caption{The \texttt{xorror} macro applies the rotates and bitwise additions of
+the linear diffusion layer to a single state word. Because of the limitations of
+assembly macros, it takes many arguments:
+\texttt{dl} and \texttt{dh} are the registers for storing the low and high part
+of the result. \texttt{sl}, \texttt{sh}, \texttt{sl0}, \texttt{sh0},
+\texttt{sl1} and \texttt{sh1} are the source registers for the state word,
+without rotation, with rotation \texttt{r0} and with rotation \texttt{r1}
+respectively. Because the shift amounts can only be 32 at most, representing
+rotate amounts above 64 is done by subtracting 32 and swapping the respective
+source registers. This is why the source registers must be supplied thrice.
+\texttt{t0}, \texttt{t1} and \texttt{t2} are three temporary registers used to
+store intermediate results.}
+\label{xorror}
+\end{figure}
