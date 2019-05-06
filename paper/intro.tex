@@ -1,18 +1,39 @@
 \section{Introduction}
 
-\subsection{Symmetric Encryption}
+\subsection{Symmetric encryption}
 
 In communication, it is often desirable to keep one's messages hidden from third
 parties. This property is called \emph{confidentiality}. In more precise terms,
 confidentiality means that a message is transformed in such a way that
 authorized parties can recover the original message from it, while unauthorized
-parties can not. In symmetric encryption, the authorized parties are defined as
+parties can not.
+
+In symmetric encryption, the authorized parties are defined as
 the parties that know a secret number, called the \emph{key}. The original
 message is called the \emph{plaintext} and the transformed message is called the
 \emph{ciphertext}. The transformation from plaintext to ciphertext is called
 \emph{encryption}, while the transformation back is called \emph{decryption}.
-For symmetric encryption, both of these transformations need the key, which is
-what prevents unauthorized parties from recovering the plaintext.
+When the same secret key is needed for both encryption and decryption, it is
+called \emph{symmetric encryption}. Because the key is needed for decryption,
+unauthorized parties are prevented from recovering the plaintext.
+
+\subsubsection{Nonces}
+
+While unauthorized parties are unable to decrypt ciphertexts, similar plaintext
+may result in similar ciphertexts, and unauthorized parties may therefor detect
+when similar messages are sent. In order to prevent this, during every
+encryption, a different number is used to modify the resulting ciphertext. It is
+needed again during decryption in order to revert that modification. Because a
+different number is used every time, the resulting ciphertexts will also differ.
+
+This number is called the \emph{nonce}, short for number used once. If it is
+used more than once, unauthorized parties may be able to infer something about
+the difference or similarity of the messages it was used for. Usually, this
+number is made from a sufficiently large amount of random bits that the chance
+of it occuring twice is negligable. When it is chosen randomly, it must be
+attached to the ciphertext unencrypted, as decryption will fail without it.
+
+\subsubsection{Authentication}
 
 Although unauthorized parties can't recover the plaintext from the ciphertext,
 they may be able to modify the ciphertext, resulting in a modified plaintext
@@ -20,6 +41,54 @@ after decryption. It is not always possible to prevent such modifications, but
 it is possible to detect them. The property that it is detectable whether a
 message has been changed, is called \emph{integrity}.
 
+Unauthorized parties may also attempt to construct messages from scratch.
+Because the key is needed for encryption, they will be unable to encrypt a
+specific plaintext, however, they will be able to send specific ciphertexts,
+even if they don't know what plaintexts corresponds to them. In order to prevent
+this, it is desirable for the receiving party to be able to verify that a
+message comes from an authorized party. Together with integrity, this property
+is called \emph{authenticity}. Encryption that provides both confidentiality and
+authenticity to the plaintext is called \emph{authenticated encryption}, or AE.
+
+\subsubsection{Associated data}
+
+Even when confidentiality and authenticity are assured, unauthorized parties may
+still repeat a message they've seen before in a different context. To prevent
+this, some data about the context in which a message is allowed to appear is
+associated with it. Just like nonces, this \emph{associated data} is used during
+encryption to modify the resulting ciphertext and is needed during decryption in
+order to revert that modification. It does not need to be stored or sent with the
+ciphertext if it can be inferred during both encryption and decryption.
+
+Associated data prevents a ciphertext from being decrypted in unintended
+contexts. An authenticated encryption scheme that supports this is called
+\emph{authenticated encryption with associated data}, or AEAD.
+
+\subsubsection{Formal definition}
+
+In summary, an authenticated encryption with associated data scheme is defined
+as a tuple of functions $(G, E, D)$, with the following properties:
+
+\begin{enumerate}
+    \item $G \colon R \to K$ is a function that takes a stream of random data and
+        produces a key.
+    \item $E \colon R \times K \times A \times M \to C$ is a function that takes
+        a stream of random data, a key, some associated data and a plaintext and
+        produces a ciphertext.
+    \item $D \colon K \times A \times C \to M \cup \{ \bot \}$ is a function
+        that takes a key, some associated data and a ciphertext and produces a
+        plaintext or a failure.
+    \item $\forall r_k, r_e \in R\ldotp \forall a \in A\ldotp
+        \forall p \in P\ldotp D(G(r_k), a, E(r_e, G(r_k), a, p)) = p$ 
+\end{enumerate}
+
 \subsection{Ascon}
+
+Ascon\cite{ascon} is an authenticated encryption cipher designed for use in
+resource constrained environments, like embedded devices. It has an internal
+state of just 320 bits, which can be kept in registers on most
+microarchitectures. This ensures moving data between registers and memory is
+kept to a minimum, which is important, as embedded devices usually don't have
+the same amount of caching available as larger systems.
 
 \subsection{Related Work}

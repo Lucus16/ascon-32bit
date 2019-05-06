@@ -1,0 +1,42 @@
+\section{Preliminaries}
+
+\subsection{Ascon internals}
+
+Ascon's main component is a permutation consisting of three phases, which are
+applied in several rounds. Ascon-128 uses 6 rounds to process blocks of 64 bits
+at a time. Ascon-128a uses 8 rounds to process blocks of 128 bits at a time.
+Both use keys of 128 bits and 12 rounds to initialize and finalize the state. A
+round consists of the following three phases: The addition of the round
+constant, the substitution layer and the linear diffusion layer. Each of these
+phases modify the internal state in a different way. The internal state consists
+of 320 bits, logically split into 5 64-bit words called $x_0$, $x_1$, $x_2$,
+$x_3$ and $x_4$.
+
+\subsubsection{Round phases}
+
+The round constant is a single byte that changes from round to round and is
+added bitwise to the least significant 8 bits of $x_2$. It ensures rounds are
+not all identical. The final round constant is always $\mathtt{4b}_h$. The round
+constant changes linearly, decreasing by $\mathtt{f}_h$ every round. This means
+the round constant can be computed easily based on the number of rounds that are
+left.
+
+The substitution layer applies a 5-bit lookup function in parallel to the five
+state words. It provides non-linear mixing and mixing between the five state
+words. It is usually implemented as a binary formula applied bitwise to five
+machine words at a time.
+
+The linear diffusion layer provides linear mixing between the bits within each
+state word. It consists of a bitwise addition of the original state word with
+the same state word rotated by two different amounts. Each of the five state
+words uses different rotation amounts.
+
+\subsubsection{Processing steps}
+
+
+
+\subsection{RISC-V}
+RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
+
+\subsection{Cortex-M4}
+

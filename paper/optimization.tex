@@ -1,0 +1,87 @@
+\section{Optimization}
+
+\subsection{Permutation}
+
+Ascon keeps an internal state of 320 bits. On 64-bit platforms, this is usually
+kept in 5 registers, on 32-bit platforms, it needs to be kept in 10.
+
+The core of Ascon consists of a transformation applied in several rounds. Each
+round consists of three phases: The addition of the round constant, the
+substitution layer and the linear diffusion layer.
+
+\subsection{Substitution layer}
+
+The substitution layer in Ascon is a 5-bit S-box which is applied in parallel to
+64 sets of 5 bits. The paper describes an instruction sequence of bitwise
+operations that will compute this S-box on an entire machine word in parallel.
+It takes 5 input words, one for each bit in the S-box, and produces 5 output
+words. The instruction sequence translates to 22 single-cycle instructions.
+Because these can only be applied to 32 bits at a time on 32-bit platforms, they
+need to be run twice. Therefor, a straightforward implementation takes 44
+cycles. The instruction sequence is as follows:
+
+\begin{samepage}
+\begin{verbatim}
+x0 ^=  x4;  x4 ^=  x3;  x2 ^=  x1;
+t0  = ~x0;  t1  = ~x1;  t2  = ~x2;  t3  = ~x3;  t4  = ~x4;
+t0 &=  x1;  t1 &=  x2;  t2 &=  x3;  t3 &=  x4;  t4 &=  x0;
+x0 ^=  t1;  x1 ^=  t2;  x2 ^=  t3;  x3 ^=  t4;  x4 ^=  t0;
+x1 ^=  x0;  x0 ^=  x4;  x3 ^=  x2;  x2  = ~x2;
+\end{verbatim}
+\end{samepage}
+
+The substitution layer can be optimized by computing the same S-box with a
+different formula. I derived shorter binary formulas by first writing down the
+the bit sequences that occur for each of the 5 output bits for all 32 inputs.
+This allowed us to recognize patterns in the bit sequences. I first eliminated
+input bits that did not affect the output, or only affected the output through a
+single exclusive or operation. Then, I looked at the remaining bit patterns and
+found short and overlapping binary formulas for them. Here, $o_n$ indicates
+output bit $n$ and $i_n$ indicates input bit $n$.
+
+\begin{samepage}
+\begin{align*}
+   o_0 & = i_3 \oplus i_4 \oplus (i_1 \vee (i_0 \oplus i_2 \oplus i_4))
+\\ o_1 & = i_0 \oplus i_4 \oplus ((i_2 \oplus i_1) \vee (i_3 \oplus i_2))
+\\ o_2 & = i_1 \oplus i_2 \oplus (i_3 \vee \neg i_4)
+\\ o_3 & = i_1 \oplus i_2 \oplus (i_0 \vee (i_4 \oplus i_3))
+\\ o_4 & = i_3 \oplus i_4 \oplus (i_1 \wedge \neg (i_4 \oplus i_0))
+\end{align*}
+\end{samepage}
+
+From these, an instruction sequence can be produced like the following:
+
+\begin{samepage}
+\begin{verbatim}
+t12  =  x1 ^ x2; t04  = x0 ^ x4; t34  = x3 ^ x4;
+x4   = ~x4;      x4  |= x3;      x4  ^= t12;
+x3  ^=  x1;      x3  |= t12;     x3  ^= t04;
+x2  ^=  t04;     x2  |= x1;      x2  ^= t34;
+t04  = ~t04;     x1  &= t04;     x1  ^= t34;
+                 x0  |= t34;     x0  ^= t12;
+\end{verbatim}
+\end{samepage}
+
+This instruction sequence computes all five of the above formulas, but the
+results end up in different registers. It is possible to compensate for this in
+the linear diffusion layer.
+
+\subsubsection{Superoptimization}
+
+As these formulas were constructed by hand, it may be possible to do better.
+There are many possible formulas, so it is infeasable to find the best option by
+hand. One option is to use something like the GNU Superoptimizer which tries all
+possible instruction sequence of a certain length in order to see if any of them
+computes a specific formula. Unfortunately, according to its README, the longest
+instruction sequence it was able to find for anything was seven instructions
+long. This is not enough, since it's expected that at least five XOR operations
+and at least five AND operations need to be computed, leading to a minimum of 10
+instructions.
+
+Ko Stoffelen\cite{sat} attempted to optimize the binary formulas using a SAT
+solver. He found ways to compile an S-box to a satisfiability problem
+determining whether it can be computed in a given number of instructions. I made
+use of his project to prove that it is not possible to compute the Ascon S-box
+in 10 instructions. Unfortunately, the project did not finish within reasonable
+time for instruction counts larger than 10, so I was unable to verify whether 17
+instructions is the best number possible.

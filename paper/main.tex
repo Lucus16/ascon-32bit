@@ -5,12 +5,10 @@
 \usepackage{url}
 
 \title{Optimizing Ascon on 32-bit microcontrollers}
-\author{
-    Lars Jellema \\\\
+\author{Lars Jellema \\\\
     \textbf{\small Supervisors} \\
     \small Peter Schwabe \\
-    \small Christoph Dobraunig
-}
+    \small Christoph Dobraunig}
 
 \date{\today}
 
@@ -25,21 +23,8 @@ Lorem ipsum
 \clearpage
 
 \input{intro}
-
-\section{Preliminaries}
-
-\subsection{Ascon internals}
-Ascon\cite{ascon} is an authenticated encryption cipher.
-
-\subsection{RISC-V}
-RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
-
-\subsection{Cortex-M4}
-
-\section{Optimization}
-
-\input{permutation}
-\input{substitution}
+\input{prelims}
+\input{optimization}
 
 \section{Benchmarks}
 
@@ -56,10 +41,10 @@ RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
 \bibliographystyle{ieeetr}
 \bibliography{references}
 
-\clearpage
 \begin{appendices}
-\section{Reproducability}
+
 \input{nix}
+
 \end{appendices}
 
 \end{document}
