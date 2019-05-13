@@ -49,22 +49,40 @@ output bit $n$ and $i_n$ indicates input bit $n$.
 \end{align*}
 \end{samepage}
 
-From these, an instruction sequence can be produced like the following:
+From these, an instruction sequence can be produced like the one in
+Figure~\ref{substitution}. It computes all five of the above formulas with one
+caveat: The results end up in different registers. We will compensate
+for this in the linear diffusion layer.
 
-\begin{samepage}
+\begin{figure}
 \begin{verbatim}
-t12  =  x1 ^ x2; t04  = x0 ^ x4; t34  = x3 ^ x4;
-x4   = ~x4;      x4  |= x3;      x4  ^= t12;
-x3  ^=  x1;      x3  |= t12;     x3  ^= t04;
-x2  ^=  t04;     x2  |= x1;      x2  ^= t34;
-t04  = ~t04;     x1  &= t04;     x1  ^= t34;
-                 x0  |= t34;     x0  ^= t12;
+xor t0, s1, s2
+xor t1, s0, s4
+xor t2, s3, s4
+not s4, s4
+or s4, s4, s3
+xor s4, s4, t0
+xor s3, s3, s1
+or s3, s3, t0
+xor s3, s3, t1
+xor s2, s2, t1
+or s2, s2, s1
+xor s2, s2, t2
+not t1, t1
+and s1, s1, t1
+xor s1, s1, t2
+or s0, s0, t2
+xor s0, s0, t0
 \end{verbatim}
-\end{samepage}
 
-This instruction sequence computes all five of the above formulas, but the
-results end up in different registers. It is possible to compensate for this in
-the linear diffusion layer.
+\caption{This instruction sequence computes boolean formulas of the substitution
+layer in parallel on the registers \texttt{s0} through \texttt{s4}, using
+\texttt{t0}, \texttt{t1} and \texttt{t2} as temporary registers. This sequence
+must be run twice with different state registers, because each state word is
+split in two machine words. Note that after this sequence, the state words end
+up in different registers.}
+\label{substitution}
+\end{figure}
 
 \subsubsection{Superoptimization}
 
@@ -74,9 +92,9 @@ hand. One option is to use something like the GNU Superoptimizer which tries all
 possible instruction sequence of a certain length in order to see if any of them
 computes a specific formula. Unfortunately, according to its README, the longest
 instruction sequence it was able to find for anything was seven instructions
-long. This is not enough, since it's expected that at least five XOR operations
-and at least five AND operations need to be computed, leading to a minimum of 10
-instructions.
+long. This is not enough, since it's expected that at least five bitwise
+addition operations and at least five bitwise and operations need to be
+computed, leading to a minimum of 10 instructions.
 
 Ko Stoffelen\cite{sat} attempted to optimize the binary formulas using a SAT
 solver. He found ways to compile an S-box to a satisfiability problem
@@ -159,23 +177,23 @@ implemented in RISC-V assembly.
 
 \begin{figure}
 \begin{verbatim}
-.macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1, t0, t1, t2
-        slli \t0, \sl0, (32 - \r0)
-        srli \t2, \sh0, \r0
-        xor \t0, \t0, \t2
-        slli \t2, \sl1, (32 - \r1)
-        xor \t0, \t0, \t2
-        srli \t2, \sh1, \r1
-        xor \t0, \t0, \t2
-        slli \t1, \sh0, (32 - \r0)
-        srli \t2, \sl0, \r0
-        xor \t1, \t1, \t2
-        slli \t2, \sh1, (32 - \r1)
-        xor \t1, \t1, \t2
-        srli \t2, \sl1, \r1
-        xor \t1, \t1, \t2
-        xor \dl, \sl, \t1
-        xor \dh, \sh, \t0
+.macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1
+        slli t0, \sl0, (32 - \r0)
+        srli t2, \sh0, \r0
+        xor t0, t0, t2
+        slli t2, \sl1, (32 - \r1)
+        xor t0, t0, t2
+        srli t2, \sh1, \r1
+        xor t0, t0, t2
+        slli t1, \sh0, (32 - \r0)
+        srli t2, \sl0, \r0
+        xor t1, t1, t2
+        slli t2, \sh1, (32 - \r1)
+        xor t1, t1, t2
+        srli t2, \sl1, \r1
+        xor t1, t1, t2
+        xor \dl, \sl, t1
+        xor \dh, \sh, t0
 .endm
 \end{verbatim}
 
@@ -188,8 +206,6 @@ of the result. \texttt{sl}, \texttt{sh}, \texttt{sl0}, \texttt{sh0},
 without rotation, with rotation \texttt{r0} and with rotation \texttt{r1}
 respectively. Because the shift amounts can only be 32 at most, representing
 rotate amounts above 64 is done by subtracting 32 and swapping the respective
-source registers. This is why the source registers must be supplied thrice.
-\texttt{t0}, \texttt{t1} and \texttt{t2} are three temporary registers used to
-store intermediate results.}
+source registers. This is why the source registers must be supplied thrice.}
 \label{xorror}
 \end{figure}

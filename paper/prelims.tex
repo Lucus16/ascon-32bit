@@ -1,6 +1,123 @@
 \section{Preliminaries}
 
+\subsection{Symmetric encryption}
+
+In communication, it is often desirable to keep one's messages hidden from third
+parties. This property is called \emph{confidentiality}. In more precise terms,
+confidentiality means that a message is transformed in such a way that
+authorized parties can recover the original message from it, while unauthorized
+parties can not.
+
+In symmetric encryption, the authorized parties are defined as
+the parties that know some secret information, called the \emph{key}. The
+original message is called the \emph{plaintext} and the transformed message is
+called the \emph{ciphertext}. The transformation from plaintext to ciphertext is
+called \emph{encryption}, while the transformation back is called
+\emph{decryption}. When the same secret key is needed for both encryption and
+decryption, it is called \emph{symmetric encryption}. Because the key is needed
+for decryption, unauthorized parties are prevented from recovering the
+plaintext.
+
+\subsubsection{Nonces}
+
+While unauthorized parties are unable to decrypt ciphertexts, similar plaintext
+may result in similar ciphertexts, and unauthorized parties may therefor detect
+when similar messages are sent. In order to prevent this, during every
+encryption, a different number is used to modify the resulting ciphertext. It is
+needed again during decryption in order to revert that modification. Because a
+different number is used every time, the resulting ciphertexts will also differ.
+
+This number is called the \emph{nonce}, short for number used once. If it is
+used more than once, unauthorized parties may be able to infer something about
+the difference or similarity of the messages it was used for. Usually, this
+number is made from a sufficiently large amount of random bits that the chance
+of it occuring twice is negligable. When it is chosen randomly, it must be
+attached to the ciphertext unencrypted, as decryption will fail without it. If
+there is no space to attach the nonce to the ciphertext, it is not possible to
+use a random nonce. In this case, information that is available during both the
+encryption and decryption should be used to construct a unique nonce.
+
+\subsubsection{Authentication}
+
+Although unauthorized parties can't recover the plaintext from the ciphertext,
+they may be able to modify the ciphertext, resulting in a modified plaintext
+after decryption. It is not always possible to prevent such modifications, but
+it is possible to detect them. The property that it is detectable whether a
+message has been changed, is called \emph{integrity}.
+
+Unauthorized parties may also attempt to construct messages from scratch.
+Because the key is needed for encryption, they will be unable to encrypt a
+specific plaintext, however, they will be able to send specific ciphertexts,
+even if they don't know what plaintexts corresponds to them. In order to prevent
+this, it is desirable for the receiving party to be able to verify that a
+message comes from an authorized party. Together with integrity, this property
+is called \emph{authenticity}. Encryption that provides both confidentiality and
+authenticity to the plaintext is called \emph{authenticated encryption}, or
+\emph{AE}.
+
+\subsubsection{Associated data}
+
+Even when confidentiality and authenticity are assured, unauthorized parties may
+still repeat a message they've seen before in a different context. To prevent
+this, some data about the context in which a message is allowed to appear can be
+associated with it. This is one of the uses of \emph{associated data}, which is
+defined as information that requires authentication but not confidentiality.
+Just like nonces, this \emph{associated data} is used during encryption to
+modify the resulting ciphertext and is needed during decryption in order to
+revert that modification. It does not need to be stored or sent with the
+ciphertext if it can be inferred during both encryption and decryption.
+
+Associated data can prevent a ciphertext from being decrypted in unintended
+contexts. An authenticated encryption scheme that supports this is called
+\emph{authenticated encryption with associated data}, or \emph{AEAD}.
+
+\subsubsection{Formal definition}
+
+An authenticated encryption with associated data scheme is defined as a tuple of
+functions $(E, D)$ with the following properties:
+
+$E$ is a function that takes a nonce, a key, some associated data and a message
+and produces a ciphertext and an authentication tag.
+\begin{equation}
+    E \colon N \times K \times A \times M \to C \times T
+\end{equation}
+
+$D$ is a function that takes a nonce, a key, some associated data, a ciphertext
+and an authentication tag and produces either a failure or a message.
+\begin{equation}
+    D \colon N \times K \times A \times C \times T \to M \cup \{ \bot \}
+\end{equation}
+
+Let $n$ be a nonce, $k$ be a key, $a$ be any associated data and $m$ be a
+message. The result of decryption after encryption with the same nonce, key and
+associated data is the original message.
+\begin{equation}
+    D(n, k, a, E(n, k, a, m)) = m
+\end{equation}
+
+% TODO: No algorithm constructs valid decryption inputs different from ones seen
+% before without the key.
+% TODO: No algorithm decrypts without the correct key, nonce, tag, associated
+% data and ciphertext.
+% TODO: Different nonces imply unrelated ciphertexts
+% TODO: Incorrect tag, key or associated data implies decryption failure
+
+Let $n$ be a nonce, $k$ be a key, $a$ be any associated data and $m$ be a
+message and let $c, t = E(n, k, a, m)$. Authenticity means the probability is
+negligable that a decryption succeeds for a different ciphertext and the same
+nonce, key, associated data and tag.
+
+\begin{equation}
+    P(D(n, k, a, c', t) \neq \bot \mid c \neq c') < \frac{1}{2^S}
+\end{equation}
+
 \subsection{Ascon internals}
+
+\subsubsection{Mode}
+
+% TODO: Describe algorithm independent of mixing function.
+
+\subsubsection{Permutation}
 
 Ascon's main component is a permutation consisting of three phases, which are
 applied in several rounds. Ascon-128 uses 6 rounds to process blocks of 64 bits
@@ -9,15 +126,13 @@ Both use keys of 128 bits and 12 rounds to initialize and finalize the state. A
 round consists of the following three phases: The addition of the round
 constant, the substitution layer and the linear diffusion layer. Each of these
 phases modify the internal state in a different way. The internal state consists
-of 320 bits, logically split into 5 64-bit words called $x_0$, $x_1$, $x_2$,
+of 320 bits, logically split into five 64-bit words called $x_0$, $x_1$, $x_2$,
 $x_3$ and $x_4$.
-
-\subsubsection{Round phases}
 
 The round constant is a single byte that changes from round to round and is
 added bitwise to the least significant 8 bits of $x_2$. It ensures rounds are
-not all identical. The final round constant is always $\mathtt{4b}_h$. The round
-constant changes linearly, decreasing by $\mathtt{f}_h$ every round. This means
+not all identical. The final round constant is always \hex{4b}. The round
+constant changes linearly, decreasing by \hex{f} every round. This means
 the round constant can be computed easily based on the number of rounds that are
 left.
 
@@ -31,15 +146,10 @@ state word. It consists of a bitwise addition of the original state word with
 the same state word rotated by two different amounts. Each of the five state
 words uses different rotation amounts.
 
-\subsubsection{Processing steps}
-
-
-
 \subsection{RISC-V}
 RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
 
 % TODO: introduce add means bitwise exclusive or
 % TODO: introduce machine word vs state word
-
-\subsection{Cortex-M4}
-
+% TODO: List all used instructions
+% TODO: Describe simplicity / RISCness which makes formal proofs easier

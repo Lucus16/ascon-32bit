@@ -3,7 +3,14 @@
 \usepackage{amsmath}
 \usepackage[page]{appendix}
 \usepackage{caption}
+\usepackage[scaled=0.8]{DejaVuSansMono}
+\usepackage{listings}
+\usepackage{textcomp}
 \usepackage{url}
+
+\newcommand{\hex}[1]{$\mathtt{#1}_h$}
+
+%\renewcommand{\ttdefault}{dejavumono}
 
 \title{Optimizing Ascon on 32-bit microcontrollers}
 \author{Lars Jellema \\\\
@@ -45,6 +52,29 @@ Lorem ipsum
 \begin{appendices}
 
 \input{nix}
+
+\section{Code listing}
+
+\subsection{\texttt{permutation.s}}
+
+\lstdefinelanguage[riscv]{Assembler}[x86masm]{Assembler}{morekeywords={.macro,.endm}}
+
+\lstdefinestyle{customasm}{,
+    language={[riscv]Assembler}, 
+    belowcaptionskip=1\baselineskip,
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    keepspaces=true,
+    upquote=true,
+    numbers=left,
+    numberstyle=\ttfamily,
+    keywords={.endm,.macro,.text,.globl},
+    keywordstyle=\bfseries,
+    morecomment=[f][\rmfamily]{\#},
+    commentstyle=\itshape,
+}
+
+\lstinputlisting[style=customasm]{../riscv/permutation.s}
 
 \end{appendices}
 

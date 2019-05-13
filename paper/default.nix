@@ -5,7 +5,8 @@ with pkgs;
 let
   latexrun = callPackage ./latexrun.nix {};
   texdeps = texlive.combine {
-    inherit (texlive) scheme-basic amsmath appendix caption url latexmk;
+    inherit (texlive)
+      scheme-basic amsmath appendix caption dejavu listings url latexmk;
   };
 
 in stdenvNoCC.mkDerivation {
