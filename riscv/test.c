@@ -116,11 +116,11 @@ int main() {
     printf("Ready.\n");
     int return_value = 0;
 
-    permutation_benchmark();
-
     for (size_t i = 0; i < TESTCASE_COUNT; i++) {
         return_value |= run_testcase(i);
     }
+
+    permutation_benchmark();
 
     return return_value;
 }

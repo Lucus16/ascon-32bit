@@ -1,8 +1,8 @@
 # xorror applies the rotates and xors of the linear diffusion layer to
-# one 64-bit state word. It only changes the values in the temporary and
-# destination registers. Arguments:
+# one 64-bit state word. It only changes the values in the temporary
+# and destination registers. Arguments:
 # Destination Low and High
-# Source Low and High, for Rotations 0 and 1
+# Source Low and High, for unrotated and rotations 0 and 1
 # These may be swapped to support rotation amounts above 32
 # Temporary registers 0, 1 and 2
 .macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1, t0, t1, t2
