@@ -1,5 +1,20 @@
 \section{Preliminaries}
 
+\subsection{Notation}
+
+The following table specifies the symbols and notation used in this document.
+
+\begin{center}
+\begin{tabular}{c l}
+    \hex{1337} & hexadecimal number
+    \\ $\bot$ & verification failure
+    \\ $x \cat y$ & concatenation of bitstrings $x$ and $y$
+    \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
+    \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
+    \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
+\end{tabular}
+\end{center}
+
 \subsection{Symmetric encryption}
 
 In communication, it is often desirable to keep one's messages hidden from third
@@ -21,7 +36,7 @@ plaintext.
 \subsubsection{Nonces}
 
 While unauthorized parties are unable to decrypt ciphertexts, similar plaintext
-may result in similar ciphertexts, and unauthorized parties may therefor detect
+may result in similar ciphertexts, and unauthorized parties may therefore detect
 when similar messages are sent. In order to prevent this, during every
 encryption, a different number is used to modify the resulting ciphertext. It is
 needed again during decryption in order to revert that modification. Because a
@@ -32,14 +47,22 @@ used more than once, unauthorized parties may be able to infer something about
 the difference or similarity of the messages it was used for. Usually, this
 number is made from a sufficiently large amount of random bits that the chance
 of it occuring twice is negligable. When it is chosen randomly, it must be
-attached to the ciphertext unencrypted, as decryption will fail without it. If
-there is no space to attach the nonce to the ciphertext, it is not possible to
-use a random nonce. In this case, information that is available during both the
-encryption and decryption should be used to construct a unique nonce.
+attached to the ciphertext unencrypted, as decryption will fail without it.
+
+If there is no space to attach the nonce to the ciphertext, it is not possible
+to use a random nonce. In this case, information that is available during both
+the encryption and decryption should be used to construct a unique nonce. For
+example, when adding encryption support to existing filesystems, there may be no
+space for nonces in the existing data structures and these probably need to stay
+compatible with earlier versions. In this case, a nonce for a block can be
+constructed by combining the inode and offset within the file into a nonce. With
+this construction, uniqueness cannot be guaranteed, so security is reduced, but
+if encryption is otherwise not possible, it is still an improvement over
+unencrypted data or encryption without nonces.
 
 \subsubsection{Authentication}
 
-Although unauthorized parties can't recover the plaintext from the ciphertext,
+Although unauthorized parties cannot recover the plaintext from the ciphertext,
 they may be able to modify the ciphertext, resulting in a modified plaintext
 after decryption. It is not always possible to prevent such modifications, but
 it is possible to detect them. The property that it is detectable whether a
@@ -52,13 +75,22 @@ even if they don't know what plaintexts corresponds to them. In order to prevent
 this, it is desirable for the receiving party to be able to verify that a
 message comes from an authorized party. Together with integrity, this property
 is called \emph{authenticity}. Encryption that provides both confidentiality and
-authenticity to the plaintext is called \emph{authenticated encryption}, or
+authenticity to the plaintext is called \emph{authenticated encryption} or
 \emph{AE}.
+
+Authenticated encryption is usually implemented by generating an
+\emph{authentication tag}. Just like the ciphertext, this tag is based on the
+key, the nonce and the plaintext. This tag is needed again during decryption.
+The decryption algorithm checks if the tag is correct and only returns a
+plaintext if it is. If the ciphertext is modified, it will decrypt to a
+different plaintext from the one used to generate the tag and cause the
+decryption to fail. Because the tag also depends on the key, valid tags cannot
+be created without it.
 
 \subsubsection{Associated data}
 
 Even when confidentiality and authenticity are assured, unauthorized parties may
-still repeat a message they've seen before in a different context. To prevent
+still repeat a message they have seen before in a different context. To prevent
 this, some data about the context in which a message is allowed to appear can be
 associated with it. This is one of the uses of \emph{associated data}, which is
 defined as information that requires authentication but not confidentiality.
@@ -69,30 +101,30 @@ ciphertext if it can be inferred during both encryption and decryption.
 
 Associated data can prevent a ciphertext from being decrypted in unintended
 contexts. An authenticated encryption scheme that supports this is called
-\emph{authenticated encryption with associated data}, or \emph{AEAD}.
+\emph{authenticated encryption with associated data} or \emph{AEAD}.
 
 \subsubsection{Formal definition}
 
 An authenticated encryption with associated data scheme is defined as a tuple of
 functions $(E, D)$ with the following properties:
 
-$E$ is a function that takes a nonce, a key, some associated data and a message
+$E$ is a function that takes a key, a nonce, some associated data and a message
 and produces a ciphertext and an authentication tag.
 \begin{equation}
-    E \colon N \times K \times A \times M \to C \times T
+    E \colon K \times N \times A \times M \to C \times T
 \end{equation}
 
-$D$ is a function that takes a nonce, a key, some associated data, a ciphertext
+$D$ is a function that takes a key, a nonce, some associated data, a ciphertext
 and an authentication tag and produces either a failure or a message.
 \begin{equation}
-    D \colon N \times K \times A \times C \times T \to M \cup \{ \bot \}
+    D \colon K \times N \times A \times C \times T \to M \cup \{ \bot \}
 \end{equation}
 
-Let $n$ be a nonce, $k$ be a key, $a$ be any associated data and $m$ be a
+Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
 message. The result of decryption after encryption with the same nonce, key and
 associated data is the original message.
 \begin{equation}
-    D(n, k, a, E(n, k, a, m)) = m
+    D(k, n, a, E(k, n, a, m)) = m
 \end{equation}
 
 % TODO: No algorithm constructs valid decryption inputs different from ones seen
@@ -102,20 +134,73 @@ associated data is the original message.
 % TODO: Different nonces imply unrelated ciphertexts
 % TODO: Incorrect tag, key or associated data implies decryption failure
 
-Let $n$ be a nonce, $k$ be a key, $a$ be any associated data and $m$ be a
-message and let $c, t = E(n, k, a, m)$. Authenticity means the probability is
+Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
+message and let $c, t = E(k, n, a, m)$. Authenticity means the probability is
 negligable that a decryption succeeds for a different ciphertext and the same
 nonce, key, associated data and tag.
 
 \begin{equation}
-    P(D(n, k, a, c', t) \neq \bot \mid c \neq c') < \frac{1}{2^S}
+    P(D(k, n, a, c', t) \neq \bot \mid c \neq c') < \frac{1}{2^S}
 \end{equation}
 
 \subsection{Ascon internals}
 
-\subsubsection{Mode}
+Ascon~\cite{ascon} is an authenticated encryption cipher designed for use in
+resource-constrained environments, like embedded devices. It has an internal
+state of just 320 bits, which can be kept in registers on most architectures.
+This ensures moving data between registers and memory is kept to a minimum,
+which is important, as embedded devices usually do not have the same amount of
+cache available as larger systems.
 
-% TODO: Describe algorithm independent of mixing function.
+\subsubsection{Mode of operation}
+
+Ascon aims to provide 128 bits of security. To that end, its key, nonce, and
+authentication tag are 128 bits in size each. The plaintext, ciphertext and
+associated data can all be of any length and are processed in \emph{blocks}.
+There are multiple variants of Ascon, we implement two of them: Ascon-128, which
+processes 64-bit blocks and Ascon-128a, which processes 128-bit blocks.
+
+Ascon uses a 320-bit state and a permutation that mixes the state in a way that
+is hard to reverse. This permutation consists of a transformation that is
+applied in multiple rounds, each with a different round constant. Both variants
+of Ascon use permutation $p^a$, which consists of 12 rounds, during
+initialization and finalization. After processing each block, Ascon uses
+permutation $p^b$, which consists of 6 rounds in Ascon-128 and 8 rounds in
+Ascon-128a. Figure~\ref{encdec} gives an overview of encryption and decryption.
+
+\input{encdec}
+
+Encryption starts with the initialization of the state. The state is initialized
+to the concatenation of an initialization vector, the key and the nonce. The
+initialization vector encodes the parameters of the variant of Ascon that it is
+used for. This initial state is then passed through the first permutation,
+$p^b$. Finally, the key is bitwise added to the least significant bits of the
+state again.
+
+After initialization, the associated data is mixed into the state. If there is
+no associated data, the state is left unmodified. Otherwise, the associated data
+is padded and split into blocks. Each of the blocks is bitwise added to the most
+significant bits of the state, followed by applying the second permutation,
+$p^b$. At the end, the least significant bit is inverted. This is done to
+separate the associated data from the plaintext, which comes next.
+
+The plaintext is padded and split into blocks in the same way as the associated
+data. Each block of plaintext is bitwise added to the most significant bits of
+the state. The result of this bitwise addition also forms the corresponding
+block of the ciphertext. After adding each block, except for the last,
+permutation $p^b$ is applied again.
+
+Finalization begins with bitwise adding the key to the most significant bits of
+the state that were not used to add the plaintext. After that, the permutation
+$p^a$ is applied again and finally, the key is bitwise added to the least
+significant bits of the state again. The result of this last operation is used
+as the authentication tag.
+
+Decryption is identical to encryption, except the ciphertext is processed in a
+slightly different way from the plaintext: Each block of the ciphertext is again
+bitwise added to the most significant bits of the state to form the plaintext,
+but instead of using this result in the state, the most significant bits of the
+state are replaced with the ciphertext before the bitwise addition.
 
 \subsubsection{Permutation}
 
@@ -147,9 +232,8 @@ the same state word rotated by two different amounts. Each of the five state
 words uses different rotation amounts.
 
 \subsection{RISC-V}
-RISC-V\cite{riscv} is an open-source hardware instruction set architecture.
+RISC-V~\cite{riscv} is an open-source hardware instruction set architecture.
 
 % TODO: introduce add means bitwise exclusive or
-% TODO: introduce machine word vs state word
 % TODO: List all used instructions
 % TODO: Describe simplicity / RISCness which makes formal proofs easier

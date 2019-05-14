@@ -2,10 +2,10 @@
 
 \subsection{Reproducability using Nix}
 
-Nix\cite{nix} is a functional package manager designed to make its packages
-highly reproducable. As a package manager, it can't eliminate entropy from
+Nix~\cite{nix} is a functional package manager designed to make its packages
+highly reproducable. As a package manager, it cannot eliminate entropy from
 concurrency, and some other sources, so multiple builds of the same package
-aren't necessarily byte-for-byte identical. Instead, it tries to eliminate
+are not necessarily byte-for-byte identical. Instead, it tries to eliminate
 entropy by specifying almost all direct and less direct dependencies with high
 precision.
 

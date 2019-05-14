@@ -1,9 +1,12 @@
 \section{Optimization}
 
-\subsection{Permutation}
+% TODO: LE vs BE
 
-Ascon keeps an internal state of 320 bits. On 64-bit platforms, this is usually
-kept in 5 registers, on 32-bit platforms, it needs to be kept in 10.
+Ascon's 320-bit state is split in five 64-bit \emph{state words}. On 32-bit
+architectures, these do not fit in a single register, so they are usually
+represented using ten 32-bit \emph{machine words}. Ascon is defined in terms of
+state words, but our implementation will be described mostly in terms of machine
+words.
 
 The core of Ascon consists of a transformation applied in several rounds. Each
 round consists of three phases: The addition of the round constant, the
@@ -11,13 +14,15 @@ substitution layer and the linear diffusion layer.
 
 \subsection{Substitution layer}
 
+% TODO: Define bitslicing and use the term here
+
 The substitution layer in Ascon is a 5-bit S-box which is applied in parallel to
 64 sets of 5 bits. The paper describes an instruction sequence of bitwise
 operations that will compute this S-box on an entire machine word in parallel.
 It takes 5 input words, one for each bit in the S-box, and produces 5 output
 words. The instruction sequence translates to 22 single-cycle instructions.
 Because these can only be applied to 32 bits at a time on 32-bit platforms, they
-need to be run twice. Therefor, a straightforward implementation takes 44
+need to be run twice. Therefore, a straightforward implementation takes 44
 cycles. The instruction sequence is as follows:
 
 \begin{samepage}
@@ -33,7 +38,7 @@ x1 ^=  x0;  x0 ^=  x4;  x3 ^=  x2;  x2  = ~x2;
 The substitution layer can be optimized by computing the same S-box with a
 different formula. I derived shorter binary formulas by first writing down the
 the bit sequences that occur for each of the 5 output bits for all 32 inputs.
-This allowed us to recognize patterns in the bit sequences. I first eliminated
+This allowed me to recognize patterns in the bit sequences. I first eliminated
 input bits that did not affect the output, or only affected the output through a
 single exclusive or operation. Then, I looked at the remaining bit patterns and
 found short and overlapping binary formulas for them. Here, $o_n$ indicates
@@ -41,11 +46,11 @@ output bit $n$ and $i_n$ indicates input bit $n$.
 
 \begin{samepage}
 \begin{align*}
-   o_0 & = i_3 \oplus i_4 \oplus (i_1 \vee (i_0 \oplus i_2 \oplus i_4))
-\\ o_1 & = i_0 \oplus i_4 \oplus ((i_2 \oplus i_1) \vee (i_3 \oplus i_2))
-\\ o_2 & = i_1 \oplus i_2 \oplus (i_3 \vee \neg i_4)
-\\ o_3 & = i_1 \oplus i_2 \oplus (i_0 \vee (i_4 \oplus i_3))
-\\ o_4 & = i_3 \oplus i_4 \oplus (i_1 \wedge \neg (i_4 \oplus i_0))
+   o_0 & = i_3 \xor i_4 \xor (i_1 \vee (i_0 \xor i_2 \xor i_4))
+\\ o_1 & = i_0 \xor i_4 \xor ((i_2 \xor i_1) \vee (i_3 \xor i_2))
+\\ o_2 & = i_1 \xor i_2 \xor (i_3 \vee \neg i_4)
+\\ o_3 & = i_1 \xor i_2 \xor (i_0 \vee (i_4 \xor i_3))
+\\ o_4 & = i_3 \xor i_4 \xor (i_1 \wedge \neg (i_4 \xor i_0))
 \end{align*}
 \end{samepage}
 
@@ -56,31 +61,31 @@ for this in the linear diffusion layer.
 
 \begin{figure}
 \begin{verbatim}
-xor t0, s1, s2
-xor t1, s0, s4
-xor t2, s3, s4
-not s4, s4
-or s4, s4, s3
-xor s4, s4, t0
-xor s3, s3, s1
-or s3, s3, t0
-xor s3, s3, t1
-xor s2, s2, t1
-or s2, s2, s1
-xor s2, s2, t2
-not t1, t1
-and s1, s1, t1
-xor s1, s1, t2
-or s0, s0, t2
-xor s0, s0, t0
+    xor t0, s1, s2
+    xor t1, s0, s4
+    xor t2, s3, s4
+    not s4, s4
+    or s4, s4, s3
+    xor s4, s4, t0
+    xor s3, s3, s1
+    or s3, s3, t0
+    xor s3, s3, t1
+    xor s2, s2, t1
+    or s2, s2, s1
+    xor s2, s2, t2
+    not t1, t1
+    and s1, s1, t1
+    xor s1, s1, t2
+    or s0, s0, t2
+    xor s0, s0, t0
 \end{verbatim}
 
 \caption{This instruction sequence computes boolean formulas of the substitution
 layer in parallel on the registers \texttt{s0} through \texttt{s4}, using
 \texttt{t0}, \texttt{t1} and \texttt{t2} as temporary registers. This sequence
-must be run twice with different state registers, because each state word is
-split in two machine words. Note that after this sequence, the state words end
-up in different registers.}
+must be run twice with different state registers, because each 64-bit state word
+is split in two 32-bit machine words. Note that after this sequence, the state
+words end up in different registers.}
 \label{substitution}
 \end{figure}
 
@@ -88,21 +93,23 @@ up in different registers.}
 
 As these formulas were constructed by hand, it may be possible to do better.
 There are many possible formulas, so it is infeasable to find the best option by
-hand. One option is to use something like the GNU Superoptimizer which tries all
-possible instruction sequence of a certain length in order to see if any of them
-computes a specific formula. Unfortunately, according to its README, the longest
-instruction sequence it was able to find for anything was seven instructions
-long. This is not enough, since it's expected that at least five bitwise
-addition operations and at least five bitwise and operations need to be
-computed, leading to a minimum of 10 instructions.
+hand. One option is to use something like the GNU
+Superoptimizer~\cite{superoptimizer} which tries all possible instruction
+sequence of a certain length in order to see if any of them computes a specific
+formula. Unfortunately, according to its README, the longest instruction
+sequence it was able to find for anything was seven instructions long. This is
+not enough, since it is expected that at least five bitwise addition operations
+and at least five bitwise and operations need to be computed, leading to a
+minimum of 10 instructions.
 
-Ko Stoffelen\cite{sat} attempted to optimize the binary formulas using a SAT
-solver. He found ways to compile an S-box to a satisfiability problem
-determining whether it can be computed in a given number of instructions. I made
-use of his project to prove that it is not possible to compute the Ascon S-box
-in 10 instructions. Unfortunately, the project did not finish within reasonable
-time for instruction counts larger than 10, so I was unable to verify whether 17
-instructions is the best number possible.
+Stoffelen~\cite{sat} attempted to optimize binary formulas for S-boxes of
+various cryptographic primitives using a SAT solver. He found ways to compile an
+S-box to a satisfiability problem determining whether it can be computed in a
+given number of instructions. I made use of his project to prove that it is not
+possible to compute the Ascon S-box in 10 instructions. Unfortunately, the
+project did not finish within reasonable time for instruction counts larger than
+10, so I was unable to verify whether 17 instructions is the best number
+possible.
 
 \subsection{Linear diffusion layer}
 
@@ -117,27 +124,27 @@ architectures generally don't have 64-bit rotate instructions.
 
 The most straightforward method of simulating a 64-bit rotate instruction is
 using shifts. By combining a left shift and a right shift, all bits of a single
-machine word can be placed at the correct offset. Because each shift throws
-away some of the bits, it is not possible to simulate a rotate instruction with
-one shift. Because a state word is two machine words in size, four shifts are
-needed in total. After this, there are four intermediate results that need to be
-combined to two resulting machine words. There are several options to combine
-these intermediate results:
+machine word can be placed at the correct offset. Because each shift loses some
+of the bits when they are shifted out, it is not possible to simulate a rotate
+instruction with one shift. Because a state word is two machine words in size,
+four shifts are needed in total. After this, there are four intermediate results
+that need to be combined to two resulting machine words. There are several
+options to combine these intermediate results:
 
 Since each bit will be zero in at least one of the two operands, the combining
 instructions can be bitwise or, bitwise exclusive or, or integer addition
 instructions. Since the results will be combined using bitwise exclusive or
 operations, we will use these for combining intermediate shift results as well.
-Because bitwise exclusive or operations are associative, it doesn't matter in
+Because bitwise exclusive or operations are associative, it does not matter in
 what order all intermediate results are combined, which gives us more freedom
 during implementation. Bitwise exclusive or can also be seen as bitwise
 addition, or addition without any carries between the bits. I will use
 \emph{bitwise addition} to refer to this operation from here on.
 
-Using shifts means throwing away bits, which is why four of them are needed. It
-would be preferable to use rotate instructions, since they don't throw away
-bits. Unfortunately, rotating both halves of a state word independently does not
-have the same effect as rotating the word as a whole.
+Because two shifts are needed to simulate one rotate instruction, it would be
+preferable to use the latter. Unfortunately, rotating both halves of a state
+word independently does not have the same effect as rotating the word as a
+whole.
 
 This is usually resolved using bit interleaving: By storing even-numbered bits
 in one word and odd-numbered bits in another, a 64-bit rotation can be simulated
@@ -147,33 +154,34 @@ amount, rounded up and down respectively, and then swapped. The disadvantage is
 that some extra cycles are needed to convert between bit-interleaved
 representation and normal representation.
 
-Unfortunately, the microcontroller we're targeting does not have rotate
-instructions at all. The SiFive HiFive1 does not include the bit manipulation
+Unfortunately, the microcontroller we are targeting does not have rotate
+instructions at all. The SiFive HiFive1 does not include the bit-manipulation
 extension, which is where RISC-V introduces its rotate instructions. This means
-we're stuck using the straightforward method using four shifts and two bitwise
-additions. The result also needs to be bitwise added back into the original,
-which takes another two instructions, one for each of the machine words. This
-means that handling one rotation amount takes eight instructions in total.
+that we are stuck using the straightforward method using four shifts and two
+bitwise additions. The result also needs to be bitwise added back into the
+original, which takes another two instructions, one for each of the machine
+words. This means that handling one rotation takes eight instructions in total.
 
 There are five state words which each have two rotations applied to them. This
-means a total of 80 instructions are needed for the linear diffusion layer. On
+means that a total of 80 instructions are needed for the linear diffusion layer. On
 32-bit RISC-V, without the bit manipulation extension, it is not possible to do
 better. This is easy to see:
 
 The only method of moving bits to different offsets is the shift instruction,
-and because it throws away bits, there are always two needed to handle 32 bits,
-or one machine word. Therefor, to move all bits into two separate new positions
-for five state words, or ten machine word, a total of 40 shifts are needed. Each
-of these shifts produces an intermediate result and all those intermediate
-results need to be merged back into the unrotated state words.
+and because some bits are lost when they are shifted out, there are always two
+needed to handle 32 bits, or one machine word. Therefore, to move all bits into
+two separate new positions for five state words, or ten machine word, a total of
+40 shifts are needed. Each of these shifts produces an intermediate result and
+all those intermediate results need to be merged back into the unrotated state
+words.
 
 Each merging instruction takes two operands and produces one result, reducing
 the number of intermediate results by one, so a total of 40 merging instructions
 is needed to merge all intermediate results. On the HiFive1, there are no
-instructions that can merge more than two machine words at a time. This means it
-is not possible to do the linear diffusion layer in less than 80 instructions.
-Figure~\ref{xorror} shows how the rotations for a single state word are
-implemented in RISC-V assembly.
+instructions that can merge more than two machine words at a time. This means
+that it is not possible to do the linear diffusion layer in less than 80
+instructions. Figure~\ref{xorror} shows how the rotations for a single state
+word are implemented in RISC-V assembly.
 
 \begin{figure}
 \begin{verbatim}
@@ -204,8 +212,9 @@ assembly macros, it takes many arguments:
 of the result. \texttt{sl}, \texttt{sh}, \texttt{sl0}, \texttt{sh0},
 \texttt{sl1} and \texttt{sh1} are the source registers for the state word,
 without rotation, with rotation \texttt{r0} and with rotation \texttt{r1}
-respectively. Because the shift amounts can only be 32 at most, representing
-rotate amounts above 64 is done by subtracting 32 and swapping the respective
-source registers. This is why the source registers must be supplied thrice.}
+respectively. Because 32-bit shift instructions can only shift by 31 at most,
+representing rotate amounts above 32 is done by subtracting 32 and swapping the
+respective source registers. This is why the source registers must be supplied
+three times.}
 \label{xorror}
 \end{figure}

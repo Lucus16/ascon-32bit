@@ -1,18 +1,24 @@
 \documentclass{article}
 
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage[page]{appendix}
 \usepackage{caption}
 \usepackage[scaled=0.8]{DejaVuSansMono}
 \usepackage{listings}
 \usepackage{textcomp}
+\usepackage{tikz}
 \usepackage{url}
+\usepackage{xcolor}
 
 \newcommand{\hex}[1]{$\mathtt{#1}_h$}
+\newcommand{\xor}[0]{\oplus}
+\newcommand{\cat}[0]{\parallel}
+\newcommand{\ror}[1]{\ggg_{#1}}
 
 %\renewcommand{\ttdefault}{dejavumono}
 
-\title{Optimizing Ascon on 32-bit microcontrollers}
+\title{Optimizing Ascon on RISC-V}
 \author{Lars Jellema \\\\
     \textbf{\small Supervisors} \\
     \small Peter Schwabe \\
@@ -57,10 +63,10 @@ Lorem ipsum
 
 \subsection{\texttt{permutation.s}}
 
-\lstdefinelanguage[riscv]{Assembler}[x86masm]{Assembler}{morekeywords={.macro,.endm}}
+\definecolor{comment}{gray}{0.4}
 
 \lstdefinestyle{customasm}{,
-    language={[riscv]Assembler}, 
+    language={[x86masm]Assembler},
     belowcaptionskip=1\baselineskip,
     basicstyle=\ttfamily,
     columns=fullflexible,
@@ -70,7 +76,7 @@ Lorem ipsum
     numberstyle=\ttfamily,
     keywords={.endm,.macro,.text,.globl},
     keywordstyle=\bfseries,
-    morecomment=[f][\rmfamily]{\#},
+    morecomment=[f][\color{comment}]{\#},
     commentstyle=\itshape,
 }
 
