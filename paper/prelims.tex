@@ -105,6 +105,14 @@ contexts. An authenticated encryption scheme that supports this is called
 
 \subsubsection{Formal definition}
 
+Security of encryption systems is often defined with respect to a security
+parameter. The \emph{security parameter} specifies how much effort is required
+to break the security properties of the system. The security parameter is
+expressed in bits and is equivelant to the 2-log of the number of operations
+needed to break the security claim. A system is secure when no algorithm exists
+that can break any of its security requirements in fewer operation than
+specified by its security parameter.
+
 An authenticated encryption with associated data scheme is defined as a tuple of
 functions $(E, D)$ with the following properties:
 
@@ -122,7 +130,8 @@ and an authentication tag and produces either a failure or a message.
 
 Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
 message. The result of decryption after encryption with the same nonce, key and
-associated data is the original message.
+associated data is the original message. In particular, this means decryption
+never returns $\bot$ when supplied with valid encryption results.
 \begin{equation}
     D(k, n, a, E(k, n, a, m)) = m
 \end{equation}
@@ -211,8 +220,8 @@ Both use keys of 128 bits and 12 rounds to initialize and finalize the state. A
 round consists of the following three phases: The addition of the round
 constant, the substitution layer and the linear diffusion layer. Each of these
 phases modify the internal state in a different way. The internal state consists
-of 320 bits, logically split into five 64-bit words called $x_0$, $x_1$, $x_2$,
-$x_3$ and $x_4$.
+of 320 bits, logically split into five 64-bit state words called $x_0$, $x_1$,
+$x_2$, $x_3$ and $x_4$.
 
 The round constant is a single byte that changes from round to round and is
 added bitwise to the least significant 8 bits of $x_2$. It ensures rounds are
@@ -222,18 +231,79 @@ the round constant can be computed easily based on the number of rounds that are
 left.
 
 The substitution layer applies a 5-bit lookup function in parallel to the five
-state words. It provides non-linear mixing and mixing between the five state
-words. It is usually implemented as a binary formula applied bitwise to five
-machine words at a time.
+state words. It provides non-linear mixing between the five state words. It is
+usually implemented as a sequence of bitwise operations which compute the
+substitution on five machine words in parallel.
 
-The linear diffusion layer provides linear mixing between the bits within each
-state word. It consists of a bitwise addition of the original state word with
-the same state word rotated by two different amounts. Each of the five state
-words uses different rotation amounts.
+The linear diffusion layer provides linear mixing of the bits within each state
+word. It consists of a bitwise addition of the original state word with the same
+state word rotated by two different amounts. Each of the five state words uses
+different rotation amounts.
 
 \subsection{RISC-V}
-RISC-V~\cite{riscv} is an open-source hardware instruction set architecture.
+RISC-V~\cite{riscv} is a hardware instruction set architecture which aims to be
+completely open: Anyone is free to create custom variations and implementations.
+It is also designed to be modular: A basic RISC-V processor starts with just the
+base integer instruction set \texttt{I}, using either 32-bit or 64-bit machine
+words. Several extensions are available which offer different common processor
+features, such as support for floating point operations. Manufacturers can
+choose to implement any combination of these extensions and will usually pick
+extensions based on the intended application.
 
-% TODO: introduce add means bitwise exclusive or
-% TODO: List all used instructions
-% TODO: Describe simplicity / RISCness which makes formal proofs easier
+In this thesis, we will use the HiFive1 development board created by SiFive. It
+features a \texttt{RV32IMAC} processor. The \texttt{RV32I} stands for the RISC-V
+32-bit base integer instruction set. The letters that follow stand for the
+extensions that are implemented in this processor: \texttt{M} stands for the
+multiplication extensions which offers integer multiplication and division
+instructions, \texttt{A} stands for the atomic memory access extension and
+\texttt{C} stands for the compressed instruction set extension which can be used
+to reduce code size.
+
+For Ascon, we won't need multiplication instructions or atomic memory access.
+The compressed instructions are used transparently by the assembler: Each
+compressed instruction corresponds to a single full size instruction and
+whenever a compressed instruction is available, it will be used instead of a
+full size instruction. We would like to use the bit manipulation extension, but
+it is not available on this board and may not be available on other embedded
+RISC-V systems, so we optimize Ascon for RISC-V processors without it.
+
+\emph{RISC} stands for Reduced Instruction Set Computer, as opposed to CISC,
+which stands for Complex Instruction Set Computer. RISC architectures aim to
+have a small set of simple and general instructions, while CISC architectures
+aim to provide complex instructions which can do multiple things at once. An
+example of this is that the CISC x86 architecture allows memory access as part
+of almost every instruction, while RISC architectures usually have separate
+memory access instructions.
+
+RISC-V takes RISC to an extreme, it is much more reduced than for example ARM,
+which is often called a RISC architecture as well. For example, RISC-V does not
+save carries for arithmetic operations and it only has about 40 instruction in
+the base integer instruction set, all of which do only one thing.
+Figure~\ref{opcodes} shows the eight instructions needed for the inner loop of
+Ascon.
+
+\begin{figure}
+\begin{tabular}{l p{0.77\linewidth}}
+       \texttt{and r, a, b} & Store the bitwise and of registers~\texttt{a} and
+        \texttt{b} in register~\texttt{r}.
+    \\ \texttt{or r, a, b} & Store the bitwise or of registers~\texttt{a} and
+        \texttt{b} in register~\texttt{r}.
+    \\ \texttt{xor r, a, b} & Store the bitwise addition of registers~\texttt{a}
+        and \texttt{b} in register~\texttt{r}. This operation is also known as
+        bitwise exclusive or.
+    \\ \texttt{not r, a} & Store the bitwise inversion of register~\texttt{a} in
+        register~\texttt{r}.
+    \\ \texttt{addi r, a, b} & Store the sum of the value of register~\texttt{a}
+        and constant~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{srli r, a, b} & Store the value of register~\texttt{a} shifted
+        right by constant amount~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{ssli r, a, b} & Store the value of register~\texttt{a} shifted
+        left by constant amount~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{bne a, b, l} & Jump to the label~\texttt{l} if the value of
+        register~\texttt{a} is not the same as the value of register~\texttt{b}.
+\end{tabular}
+
+\caption{The RISC-V instructions used in the inner loop of Ascon.}
+
+\label{opcodes}
+\end{figure}

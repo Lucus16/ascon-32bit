@@ -61,31 +61,35 @@ for this in the linear diffusion layer.
 
 \begin{figure}
 \begin{verbatim}
-    xor t0, s1, s2
-    xor t1, s0, s4
-    xor t2, s3, s4
-    not s4, s4
-    or s4, s4, s3
-    xor s4, s4, t0
-    xor s3, s3, s1
-    or s3, s3, t0
-    xor s3, s3, t1
-    xor s2, s2, t1
-    or s2, s2, s1
-    xor s2, s2, t2
-    not t1, t1
-    and s1, s1, t1
-    xor s1, s1, t2
-    or s0, s0, t2
-    xor s0, s0, t0
+.macro sbox s0, s1, s2, s3, s4, r0
+        xor t0, \s1, \s2
+        xor t1, \s0, \s4
+        xor t2, \s3, \s4
+        not \s4, \s4
+        or \s4, \s4, \s3
+        xor \s4, \s4, t0
+        xor \s3, \s3, \s1
+        or \s3, \s3, t0
+        xor \s3, \s3, t1
+        xor \s2, \s2, t1
+        or \s2, \s2, \s1
+        xor \s2, \s2, t2
+        not t1, t1
+        and \s1, \s1, t1
+        xor \s1, \s1, t2
+        or \s0, \s0, t2
+        xor \r0, \s0, t0
+.endm
 \end{verbatim}
 
-\caption{This instruction sequence computes boolean formulas of the substitution
-layer in parallel on the registers \texttt{s0} through \texttt{s4}, using
-\texttt{t0}, \texttt{t1} and \texttt{t2} as temporary registers. This sequence
-must be run twice with different state registers, because each 64-bit state word
-is split in two 32-bit machine words. Note that after this sequence, the state
-words end up in different registers.}
+\caption{This macro computes boolean formulas of the substitution layer in
+parallel on the registers \texttt{s0} through \texttt{s4}, using \texttt{t0},
+\texttt{t1} and \texttt{t2} as temporary registers. This macro must be run
+twice with different state registers, because each 64-bit state word is split in
+two 32-bit machine words. Note that after this macro, the state words end up
+in different registers. In order to make space to move the state words back into
+position, the final result is stored in register \texttt{r0} instead.}
+
 \label{substitution}
 \end{figure}
 
@@ -216,5 +220,6 @@ respectively. Because 32-bit shift instructions can only shift by 31 at most,
 representing rotate amounts above 32 is done by subtracting 32 and swapping the
 respective source registers. This is why the source registers must be supplied
 three times.}
+
 \label{xorror}
 \end{figure}
