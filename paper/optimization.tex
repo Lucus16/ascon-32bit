@@ -1,6 +1,6 @@
 \section{Optimization}
 
-% TODO: LE vs BE
+% TODO: Introduction
 
 Ascon's 320-bit state is split in five 64-bit \emph{state words}. On 32-bit
 architectures, these do not fit in a single register, so they are usually
@@ -8,32 +8,59 @@ represented using ten 32-bit \emph{machine words}. Ascon is defined in terms of
 state words, but our implementation will be described mostly in terms of machine
 words.
 
-The core of Ascon consists of a transformation applied in several rounds. Each
-round consists of three phases: The addition of the round constant, the
-substitution layer and the linear diffusion layer.
+\subsection{Endianness}
+
+The first optimization we can make is due to endianness. Ascon uses big endian
+state words, while most processors, including the HiFive1, support little endian
+memory access only. This means the endianness of the plaintext and the
+associated data needs to be reversed before it can be merged into the state.
+
+The reference implementation switches endianness while loading and storing the
+Ascon state to memory every time new data needs to be merged into it. It does
+this by storing individual bytes, which means 40 load and store operations are
+needed, while just 10 would be sufficient if the endianness had matched.
+
+To improve on this number, it's possible to keep the endianness of the state the
+same at all times and instead switch the endianness of the data that needs to be
+merged into it. For Ascon128, this means only 64 bits of data needs their
+endianness reversed instead of 320 bits, and for Ascon128a, only 128 bits of
+data needs their endianness reversed. In addition, the data that needs to be
+merged into the state only needs to be loaded, it doesn't need to be stored in
+the same endianness again.
 
 \subsection{Substitution layer}
 
-% TODO: Define bitslicing and use the term here
-
 The substitution layer in Ascon is a 5-bit S-box which is applied in parallel to
-64 sets of 5 bits. The paper describes an instruction sequence of bitwise
-operations that will compute this S-box on an entire machine word in parallel.
-It takes 5 input words, one for each bit in the S-box, and produces 5 output
-words. The instruction sequence translates to 22 single-cycle instructions.
-Because these can only be applied to 32 bits at a time on 32-bit platforms, they
-need to be run twice. Therefore, a straightforward implementation takes 44
-cycles. The instruction sequence is as follows:
+64 sets of 5 bits. This allows an efficient implementation using
+\emph{bit slicing}. Bit slicing is a technique for computing many lookup tables
+in parallel and in constant time by computing the lookup table using binary
+operations. Each of these binary operations take two bits as input and produce
+one bit as output. All common architectures have bitwise operation instructions
+that run such binary operations in parallel on entire machine words.
 
-\begin{samepage}
+Ascon was optimized for bit slicing: The 5 bits of the S-box are located in 5
+different state words in the same bit position. The Ascon paper describes an
+instruction sequence that uses bit slicing to compute the S-box efficiently.
+The instruction sequence translates to 22 single-cycle instructions.
+Because these can only be applied to 32 bits at a time on 32-bit platforms and
+the five state words are 64 bits in size each, they need to be run twice.
+Therefore, a straightforward implementation takes 44 cycles. The instruction
+sequence is shown in Figure~\ref{originalsbox}.
+
+\begin{figure}
 \begin{verbatim}
-x0 ^=  x4;  x4 ^=  x3;  x2 ^=  x1;
-t0  = ~x0;  t1  = ~x1;  t2  = ~x2;  t3  = ~x3;  t4  = ~x4;
-t0 &=  x1;  t1 &=  x2;  t2 &=  x3;  t3 &=  x4;  t4 &=  x0;
-x0 ^=  t1;  x1 ^=  t2;  x2 ^=  t3;  x3 ^=  t4;  x4 ^=  t0;
-x1 ^=  x0;  x0 ^=  x4;  x3 ^=  x2;  x2  = ~x2;
+    x0 ^=  x4;  x4 ^=  x3;  x2 ^=  x1;
+    t0  = ~x0;  t1  = ~x1;  t2  = ~x2;  t3  = ~x3;  t4  = ~x4;
+    t0 &=  x1;  t1 &=  x2;  t2 &=  x3;  t3 &=  x4;  t4 &=  x0;
+    x0 ^=  t1;  x1 ^=  t2;  x2 ^=  t3;  x3 ^=  t4;  x4 ^=  t0;
+    x1 ^=  x0;  x0 ^=  x4;  x3 ^=  x2;  x2  = ~x2;
 \end{verbatim}
-\end{samepage}
+
+\caption{This instruction sequence is the parallel implementation the S-box of
+Ascon was designed for. It consists of 22 operations.}
+
+\label{originalsbox}
+\end{figure}
 
 The substitution layer can be optimized by computing the same S-box with a
 different formula. I derived shorter binary formulas by first writing down the
@@ -41,25 +68,38 @@ the bit sequences that occur for each of the 5 output bits for all 32 inputs.
 This allowed me to recognize patterns in the bit sequences. I first eliminated
 input bits that did not affect the output, or only affected the output through a
 single exclusive or operation. Then, I looked at the remaining bit patterns and
-found short and overlapping binary formulas for them. Here, $o_n$ indicates
-output bit $n$ and $i_n$ indicates input bit $n$.
+found short and overlapping binary formulas for them.
 
-\begin{samepage}
+Figure~\ref{shortformulas} shows the result of this analysis. These formulas are
+based on three bitwise additions which are used three times each. Three
+operations are used to compute these bitwise additions and 14 more operations
+are then used to compute all formulas. This results in a total of 17 operations,
+five fewer than the reference implementation.
+
+\begin{figure}
 \begin{align*}
    o_0 & = i_3 \xor i_4 \xor (i_1 \vee (i_0 \xor i_2 \xor i_4))
-\\ o_1 & = i_0 \xor i_4 \xor ((i_2 \xor i_1) \vee (i_3 \xor i_2))
+\\ o_1 & = i_0 \xor i_4 \xor ((i_1 \xor i_2) \vee (i_2 \xor i_3))
 \\ o_2 & = i_1 \xor i_2 \xor (i_3 \vee \neg i_4)
-\\ o_3 & = i_1 \xor i_2 \xor (i_0 \vee (i_4 \xor i_3))
-\\ o_4 & = i_3 \xor i_4 \xor (i_1 \wedge \neg (i_4 \xor i_0))
+\\ o_3 & = i_1 \xor i_2 \xor (i_0 \vee (i_3 \xor i_4))
+\\ o_4 & = i_3 \xor i_4 \xor (i_1 \wedge \neg (i_0 \xor i_4))
 \end{align*}
-\end{samepage}
+
+\caption{These formulas compute the Ascon S-box in 17 operations (once duplicate
+operations are taken out), while the reference implementation uses 22
+operations. $o_n$ indicates output bit $n$ and $i_n$ indicates input bit $n$.}
+
+\label{shortformulas}
+\end{figure}
 
 From these, an instruction sequence can be produced like the one in
 Figure~\ref{substitution}. It computes all five of the above formulas with one
 caveat: The results end up in different registers. We will compensate
 for this in the linear diffusion layer.
 
-\begin{figure}
+% TODO: Switch figures to lstlisting
+
+\begin{figure}[p]
 \begin{verbatim}
 .macro sbox s0, s1, s2, s3, s4, r0
         xor t0, \s1, \s2
@@ -187,7 +227,7 @@ that it is not possible to do the linear diffusion layer in less than 80
 instructions. Figure~\ref{xorror} shows how the rotations for a single state
 word are implemented in RISC-V assembly.
 
-\begin{figure}
+\begin{figure}[p]
 \begin{verbatim}
 .macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1
         slli t0, \sl0, (32 - \r0)
@@ -222,4 +262,74 @@ respective source registers. This is why the source registers must be supplied
 three times.}
 
 \label{xorror}
+\end{figure}
+
+\subsection{Addition of round constant}
+
+The addition of the round constant is a very short phase: A single byte gets
+bitwise added to one of the state words. This takes one instruction. The correct
+value to be added still needs to be computed though. We note that the round
+constant for any given round is always \hex{f} lower than in the previous round.
+This means we can compute it based on the previous round with one subtraction.
+
+\subsection{Full round}
+
+The round constant for the initial round is based only on the number of rounds
+that will be run in that invocation of the permutation. Therefor, it can be a
+parameter to the permutation which is constant in every location where it is
+called. Because the constant is just one byte in size, the initial constant can
+be created with just one move immediate instruction.
+
+The initial constant has been chosen in such a way that the constant in the
+final round is always \hex{4b}. This means the current round constant can be
+used to check if we've reached the final round. This saves us the instructions
+necessary to keep track of the round number.
+
+As mentioned before, the substitution layer shuffles the state words into
+different registers and this needs to be resolved during the linear diffusion
+layer. The first step is to store one state word in temporary registers. That
+frees up the two registers corresponding to another state word. We compute the
+linear diffusion layer for the state word that should end up in those registers,
+thereby freeing another pair of registers, the ones this new state word was
+stored in.
+
+We repeat this five times, and at the end, we use the state word that was stored
+in the temporary registers. Figure~\ref{round} shows the inner loop for the
+entire round. The \texttt{xorror} macro's first two arguments are the registers
+where the result will be stored and the next two arguments are the registers
+that are freed up.
+
+\begin{figure}[p]
+\begin{verbatim}
+round:
+        # Addition of round constant
+        xor a2, a2, t5
+
+        # Substitution layer
+        sbox a0, a1, a2, a3, a4, t3
+        sbox s0, s1, s2, s3, s4, t4
+
+        # Linear diffusion layer
+        xorror a0, s0, a2, s2, a2, s2, 19, a2, s2, 28
+        xorror a2, s2, a4, s4, a4, s4, 1,  a4, s4, 6
+        xorror a4, s4, a1, s1, a1, s1, 7,  s1, a1, 9
+        xorror a1, s1, a3, s3, s3, a3, 29, s3, a3, 7
+        xorror a3, s3, t3, t4, t3, t4, 10, t3, t4, 17
+
+        # Compute next round constant
+        addi t5, t5, -15
+
+        # Loop back if final round has not been reached
+        bne a5, t5, round
+\end{verbatim}
+
+\caption{The main permutation loop that loops over all rounds in a permutation,
+defined in terms of the \texttt{sbox} and \texttt{xorror} macros.
+\texttt{t5} contains the round constant, \texttt{a0} through \texttt{a4}
+contain the least significant halves of the five state words, \texttt{s0}
+through \texttt{s4} contain the most significant halves of the five state words.
+\texttt{t0} through \texttt{t4} are used as temporary registers and \texttt{a5}
+contains the round constant where the loop should end, \hex{3c}.}
+
+\label{round}
 \end{figure}

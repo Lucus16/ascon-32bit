@@ -1,20 +1,5 @@
 \section{Preliminaries}
 
-\subsection{Notation}
-
-The following table specifies the symbols and notation used in this document.
-
-\begin{center}
-\begin{tabular}{c l}
-    \hex{1337} & hexadecimal number
-    \\ $\bot$ & verification failure
-    \\ $x \cat y$ & concatenation of bitstrings $x$ and $y$
-    \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
-    \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
-    \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
-\end{tabular}
-\end{center}
-
 \subsection{Symmetric encryption}
 
 In communication, it is often desirable to keep one's messages hidden from third
@@ -43,11 +28,18 @@ needed again during decryption in order to revert that modification. Because a
 different number is used every time, the resulting ciphertexts will also differ.
 
 This number is called the \emph{nonce}, short for number used once. If it is
-used more than once, unauthorized parties may be able to infer something about
+used more than once, unauthorized parties may be able to infer information about
 the difference or similarity of the messages it was used for. Usually, this
 number is made from a sufficiently large amount of random bits that the chance
 of it occuring twice is negligable. When it is chosen randomly, it must be
 attached to the ciphertext unencrypted, as decryption will fail without it.
+
+A counter can also be used to generate unique nonces, if it is sufficiently
+large that it will never overflow within its lifetime. This has the advantage
+that a good source of randomness is not needed, and the disadvantage that the
+current count must be kept track of and synchronized between uses. To reduce
+synchronization overhead, some systems reserve ranges of counter values ahead of
+time.
 
 If there is no space to attach the nonce to the ciphertext, it is not possible
 to use a random nonce. In this case, information that is available during both
@@ -94,14 +86,41 @@ still repeat a message they have seen before in a different context. To prevent
 this, some data about the context in which a message is allowed to appear can be
 associated with it. This is one of the uses of \emph{associated data}, which is
 defined as information that requires authentication but not confidentiality.
-Just like nonces, this \emph{associated data} is used during encryption to
-modify the resulting ciphertext and is needed during decryption in order to
-revert that modification. It does not need to be stored or sent with the
-ciphertext if it can be inferred during both encryption and decryption.
-
-Associated data can prevent a ciphertext from being decrypted in unintended
-contexts. An authenticated encryption scheme that supports this is called
+An authenticated encryption scheme that supports this is called
 \emph{authenticated encryption with associated data} or \emph{AEAD}.
+
+Just like nonces, \emph{associated data} is used during encryption to modify the
+resulting ciphertext and is needed during decryption in order to revert that
+modification. It does not need to be stored or sent with the ciphertext if it
+can be inferred during both encryption and decryption.
+
+Because the correct associated data is needed during decryption, it prevents
+messages from being decrypted using the wrong associated data. If the associated
+data is inferred from the context, it can prevent encrypted data from being
+decrypted in the wrong context. For example, this prevents two encrypted records
+containing positive and negative information respectively from being swapped
+between contexts specifying different persons.
+
+Note that some encryption schemes don't need the associated data for decryption.
+Correct implementations of these will still check the associated data and return
+failure if it does not match. The behavior is the same, but such schemes allow
+incorrect implementations to go undetected more easily.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{c l}
+    \hex{1337} & hexadecimal number
+    \\ $\bot$ & verification failure
+    \\ $x \cat y$ & concatenation of bitstrings $x$ and $y$
+    \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
+    \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
+    \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
+\end{tabular}
+\end{center}
+\caption{The following table specifies the symbols and notation used in this
+document.}
+\label{notation}
+\end{figure}
 
 \subsubsection{Formal definition}
 
@@ -230,15 +249,17 @@ constant changes linearly, decreasing by \hex{f} every round. This means
 the round constant can be computed easily based on the number of rounds that are
 left.
 
-The substitution layer applies a 5-bit lookup function in parallel to the five
-state words. It provides non-linear mixing between the five state words. It is
-usually implemented as a sequence of bitwise operations which compute the
-substitution on five machine words in parallel.
+The substitution layer applies a 5-bit lookup function (called an S-box) in
+parallel to the five state words. It provides non-linear mixing between the five
+state words. It is usually implemented as a sequence of bitwise operations which
+compute the substitution on five machine words in parallel.
 
 The linear diffusion layer provides linear mixing of the bits within each state
 word. It consists of a bitwise addition of the original state word with the same
 state word rotated by two different amounts. Each of the five state words uses
 different rotation amounts.
+
+% TODO: Expand Ascon permutation?
 
 \subsection{RISC-V}
 RISC-V~\cite{riscv} is a hardware instruction set architecture which aims to be
@@ -281,6 +302,10 @@ save carries for arithmetic operations and it only has about 40 instruction in
 the base integer instruction set, all of which do only one thing.
 Figure~\ref{opcodes} shows the eight instructions needed for the inner loop of
 Ascon.
+
+% TODO: instructions specify destination first
+% TODO: macro syntax
+% TODO: Check for other missing RISC-V info
 
 \begin{figure}
 \begin{tabular}{l p{0.77\linewidth}}

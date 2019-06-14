@@ -16,53 +16,6 @@
 \newcommand{\cat}[0]{\parallel}
 \newcommand{\ror}[1]{\ggg_{#1}}
 
-%\renewcommand{\ttdefault}{dejavumono}
-
-\title{Optimizing Ascon on RISC-V}
-\author{Lars Jellema \\\\
-    \textbf{\small Supervisors} \\
-    \small Peter Schwabe \\
-    \small Christoph Dobraunig}
-
-\date{\today}
-
-\begin{document}
-
-\maketitle
-
-\begin{abstract}
-Lorem ipsum
-\end{abstract}
-
-\clearpage
-
-\input{intro}
-\input{prelims}
-\input{optimization}
-
-\section{Benchmarks}
-
-\subsection{Method}
-
-\subsection{Results}
-
-\subsection{Comparison to other results}
-
-\section{Conclusion}
-
-\subsection{Future work}
-
-\bibliographystyle{ieeetr}
-\bibliography{references}
-
-\begin{appendices}
-
-\input{nix}
-
-\section{Code listing}
-
-\subsection{\texttt{permutation.s}}
-
 \definecolor{comment}{gray}{0.4}
 
 \lstdefinestyle{customasm}{,
@@ -79,6 +32,47 @@ Lorem ipsum
     morecomment=[f][\color{comment}]{\#},
     commentstyle=\itshape,
 }
+
+%\renewcommand{\ttdefault}{dejavumono}
+
+\title{Optimizing Ascon on RISC-V}
+\author{Lars Jellema \\\\
+    \textbf{\small Supervisors} \\
+    \small Peter Schwabe \\
+    \small Christoph Dobraunig}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Lorem ipsum
+
+\dots while keeping register usage to a minimum, so our techniques can be ported
+easily to microarchitectures with fewer registers.
+
+\end{abstract}
+
+\clearpage
+
+\input{intro}
+\input{prelims}
+\input{optimization}
+\input{benchmarks}
+\input{conclusion}
+
+\bibliographystyle{ieeetr}
+\bibliography{references}
+
+\begin{appendices}
+
+\input{nix}
+
+\section{Code listing}
+
+\subsection{\texttt{permutation.s}}
 
 \lstinputlisting[style=customasm]{../riscv/permutation.s}
 

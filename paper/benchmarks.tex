@@ -1,0 +1,149 @@
+\section{Benchmarks}
+
+In this section, we will look at the expected and measured performance of the
+permutation loop in detail. In principle, because this is the innermost loop,
+the optimizations done here should have the most effect. This thesis focuses on
+the inner loop and leaves the outer loop for future work as it is relatively
+easy to optimize, and therefor not as interesting.
+
+\subsection{Register usage}
+
+Before looking at our implementations speed, it is interesting to look at the
+number of registers our implementation uses. Although variations exist, most
+RISC-V microarchitectures offer 31 general-purpose registers. One of these is
+always needed to point to the stack, leaving us with 30 registers for our
+implementation. We will still try to keep register usage to a minimum however,
+so that the techniques used in this implementation may be easily ported to other
+microarchitectures.
+
+The 320-bit Ascon state needs ten 32-bit registers at all times in order to
+avoid loading and storing it from memory. Our implementation of the substitution
+layer uses three temporary registers during its computation. Because these are
+temporary registers, they are available again after the substitution layer
+finishes.
+
+Our linear diffusion layer uses the same three temporary registers for its own
+computation, however, because the substitution layer moved the state words
+around, two more registers are needed to move them back into place again.
+
+The current round constant uses another register and the final round constant
+uses one more. Because the final round constant is small and constant, it can be
+traded for a single-cycle instruction to generate it, but on RISC-V, there is no
+need.
+
+In total, we use 17 registers out of 30, which leaves 13 registers to implement
+the outer loop. This should allow the implementation of the outer loop to avoid
+loading or storing anything but the inputs and outputs of the algorithm.
+Figure~\ref{registers} gives an overview of these allocations.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{l c}
+Purpose & Registers used \\ \hline
+Ascon state & 10 \\
+Temporary & 3 \\
+Shuffle into place & 2 \\
+Current round constant & 1 \\
+Final round constant & 1 \\ \hline
+Total & 17
+\end{tabular}
+\end{center}
+\caption{Register allocation during the }
+\label{registers}
+\end{figure}
+
+\subsection{Expected performance}
+
+The substitution layer was optimized by using different binary formulas to
+compute the S-box. The original formulas used 22 single-cycle instructions while
+the improved formulas use 17 single-cycle instructions. We have made an attempt
+to prove this is the smallest number possible, but the method we used was not
+sufficiently powerful.
+
+Because we can only operate on machine words and the Ascon state words are twice
+the size of a machine word, so we expect the substitution layer to take 34
+cycles.
+
+As described in the section on optimization, the linear diffusion layer must
+take at least 80 cycles. We give an implementation that reaches this minimum,
+while also moving the state words back into their original registers, to reverse
+the shuffling from the substitution layer. This is possible thanks to RISC-V's
+abundant number of registers.
+
+Finally, the addition of the round constant takes a single cycle, and its
+computation from the previous round constant takes one more. This round constant
+is also used to terminate the loop, by comparing it to the final round constant.
+As long as this constant is loaded in a register, comparing to it and jumping
+back should take on cycle. Of course, due to branch misprediction, this may take
+more cycles in the first few rounds and at the end of the last round. On all
+other rounds, the addition of the round constant and the loop together should
+take 3 cycles. Summing these, one round of the permutation is expected to take
+117 cycles.
+
+\subsection{Method}
+
+We take several measures in order to get highly reliable benchmarks. First of
+all, we run the processor at a low frequency, approximately 18 MHz, much lower
+than this processor's maximum frequency of around 300 MHz. This assures other
+components, like memory and instruction cache can keep up. Second, we run each
+benchmark 32 times. We report the median of these results.
+
+Next, in order to test only the speed of rounds after the branch predictor and
+other factors have stabilized, we report the difference between the timings of
+running the target number of rounds and twice that number of rounds in a single
+permutation.
+
+Finally, we choose the number of permutations to be the product of several small
+factors that could be the periods of various kinds of fluctuations. We use 120
+rounds, which is well above realistic usage of Ascon, but the computation
+remains the same, so the speed should not be affected. After taking all these
+measures, we find the results are completely consistent between runs.
+
+\subsection{Results}
+
+Figure~\ref{roundbench} shows the measured cycles for a single round of the Ascon
+permutation. While a single round was expected to take 117 cycles, in practice
+it takes 118 cycles. It is unclear what causes this. The most likely explanation
+is that the compare-and-jump-if-not-equal instruction used at the end of the
+loop takes two cycles rather than one. Unfortunately, the documentation from
+SiFive does not specify clear cycle counts for each instruction.
+
+Figure~\ref{asconbench} shows the resulting increase in speed for encryption and
+decryption across the different implementations. To encrypt 4096 bytes using
+Ascon128, it is first padded to 5004 bytes and then split into 513 blocks. To
+separate these blocks, 6 rounds of the permutation are run between them, 512
+times in total. Initialization and finalization cost another 12 rounds each, for
+a total of 3096 rounds. These rounds cost 365328 cycles, before branch
+mispredictions. This means encryption spends 66\% of its time on the Ascon
+permutation and decryption spends 76\% of its time on the permutation.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{l c c}
+Phase & Expected & Measured \\ \hline
+Substitution layer & 34 & 34 \\
+Linear diffusion layer & 80 & 80 \\
+Addition of constant and loop & 3 & 4 \\ \hline
+Total & 117 & 118
+\end{tabular}
+\end{center}
+\caption{Number of cycles each phase of an Ascon permutation round takes after
+the branch predictor has stabilized.}
+\label{roundbench}
+\end{figure}
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{l c c c}
+    Implementation & Encryption & Decryption & Relative speed \\ \hline
+    Reference implementation & 701340 & 627863 & 100\% \\
+    Big endian state & 612095 & 538205 & 116\% \\
+    Inner loop in assembly & 552076 & 478262 & 129\% \\
+\end{tabular}
+\end{center}
+\caption{Number of cycles for encrypting and decrypting 4096 bytes for different
+implementations.}
+\label{asconbench}
+\end{figure}
+
+% TODO: \subsection{Comparison to other results}
