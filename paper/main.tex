@@ -25,12 +25,11 @@
     columns=fullflexible,
     keepspaces=true,
     upquote=true,
-    numbers=left,
-    numberstyle=\ttfamily,
+    numbers=none,
+    numberstyle=\ttfamily\color{comment},
     keywords={.endm,.macro,.text,.globl},
     keywordstyle=\bfseries,
     morecomment=[f][\color{comment}]{\#},
-    commentstyle=\itshape,
 }
 
 %\renewcommand{\ttdefault}{dejavumono}
@@ -48,10 +47,22 @@
 \maketitle
 
 \begin{abstract}
-Lorem ipsum
 
-\dots while keeping register usage to a minimum, so our techniques can be ported
-easily to microarchitectures with fewer registers.
+Ascon is a family of authenticated encryption schemes which appears in the
+final portfolio of the CAESAR competition and as a candidate in the NIST
+lightweight cryptography competition. It uses a simple permutation for its
+inner loop that is designed to have a straightforward and efficient
+implementation.
+
+RISC-V is a hardware instruction set architecture which is completely
+open-source and based RISC principles. It offers a small and simple
+instruction set with little space for optimization.
+
+We optimize the Ascon inner loop for the RISC-V RV32IMAC architecture. We
+find improvements over the reference implementation in several parts and get
+very close to the theoretical optimal speed. At the same time, we keep
+register usage to a minimum to allow our techniques to be ported to other
+architectures easily.
 
 \end{abstract}
 

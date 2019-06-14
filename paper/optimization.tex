@@ -1,12 +1,10 @@
 \section{Optimization}
 
-% TODO: Introduction
-
-Ascon's 320-bit state is split in five 64-bit \emph{state words}. On 32-bit
-architectures, these do not fit in a single register, so they are usually
-represented using ten 32-bit \emph{machine words}. Ascon is defined in terms of
-state words, but our implementation will be described mostly in terms of machine
-words.
+In this section, we will optimize Ascon in several parts. We begin by looking at
+the state representation and we continue by considering the possibilities for
+each phase of the Ascon permutation. We find efficient implementations for them
+and consider whether further improvement is possible. In the end, we look at the
+entire round and the entire permutation, which loops over several rounds.
 
 \subsection{Endianness}
 
@@ -97,30 +95,8 @@ Figure~\ref{substitution}. It computes all five of the above formulas with one
 caveat: The results end up in different registers. We will compensate
 for this in the linear diffusion layer.
 
-% TODO: Switch figures to lstlisting
-
 \begin{figure}[p]
-\begin{verbatim}
-.macro sbox s0, s1, s2, s3, s4, r0
-        xor t0, \s1, \s2
-        xor t1, \s0, \s4
-        xor t2, \s3, \s4
-        not \s4, \s4
-        or \s4, \s4, \s3
-        xor \s4, \s4, t0
-        xor \s3, \s3, \s1
-        or \s3, \s3, t0
-        xor \s3, \s3, t1
-        xor \s2, \s2, t1
-        or \s2, \s2, \s1
-        xor \s2, \s2, t2
-        not t1, t1
-        and \s1, \s1, t1
-        xor \s1, \s1, t2
-        or \s0, \s0, t2
-        xor \r0, \s0, t0
-.endm
-\end{verbatim}
+\lstinputlisting[style=customasm,firstline=9,lastline=27]{../riscv/permutation.s}
 
 \caption{This macro computes boolean formulas of the substitution layer in
 parallel on the registers \texttt{s0} through \texttt{s4}, using \texttt{t0},
@@ -228,26 +204,7 @@ instructions. Figure~\ref{xorror} shows how the rotations for a single state
 word are implemented in RISC-V assembly.
 
 \begin{figure}[p]
-\begin{verbatim}
-.macro xorror dl, dh, sl, sh, sl0, sh0, r0, sl1, sh1, r1
-        slli t0, \sl0, (32 - \r0)
-        srli t2, \sh0, \r0
-        xor t0, t0, t2
-        slli t2, \sl1, (32 - \r1)
-        xor t0, t0, t2
-        srli t2, \sh1, \r1
-        xor t0, t0, t2
-        slli t1, \sh0, (32 - \r0)
-        srli t2, \sl0, \r0
-        xor t1, t1, t2
-        slli t2, \sh1, (32 - \r1)
-        xor t1, t1, t2
-        srli t2, \sl1, \r1
-        xor t1, t1, t2
-        xor \dl, \sl, t1
-        xor \dh, \sh, t0
-.endm
-\end{verbatim}
+\lstinputlisting[style=customasm,firstline=39,lastline=56]{../riscv/permutation.s}
 
 \caption{The \texttt{xorror} macro applies the rotates and bitwise additions of
 the linear diffusion layer to a single state word. Because of the limitations of
@@ -300,28 +257,7 @@ where the result will be stored and the next two arguments are the registers
 that are freed up.
 
 \begin{figure}[p]
-\begin{verbatim}
-round:
-        # Addition of round constant
-        xor a2, a2, t5
-
-        # Substitution layer
-        sbox a0, a1, a2, a3, a4, t3
-        sbox s0, s1, s2, s3, s4, t4
-
-        # Linear diffusion layer
-        xorror a0, s0, a2, s2, a2, s2, 19, a2, s2, 28
-        xorror a2, s2, a4, s4, a4, s4, 1,  a4, s4, 6
-        xorror a4, s4, a1, s1, a1, s1, 7,  s1, a1, 9
-        xorror a1, s1, a3, s3, s3, a3, 29, s3, a3, 7
-        xorror a3, s3, t3, t4, t3, t4, 10, t3, t4, 17
-
-        # Compute next round constant
-        addi t5, t5, -15
-
-        # Loop back if final round has not been reached
-        bne a5, t5, round
-\end{verbatim}
+\lstinputlisting[style=customasm,firstline=104,lastline=123]{../riscv/permutation.s}
 
 \caption{The main permutation loop that loops over all rounds in a permutation,
 defined in terms of the \texttt{sbox} and \texttt{xorror} macros.

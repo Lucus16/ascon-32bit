@@ -280,6 +280,12 @@ instructions, \texttt{A} stands for the atomic memory access extension and
 \texttt{C} stands for the compressed instruction set extension which can be used
 to reduce code size.
 
+At this point it is important to note that our target processor uses 32-bit
+\emph{machine words}, while Ascon is defined in terms of five 64-bit
+\emph{state words}. These state words do not fit in a single register, so each
+state word will be stored using two registers. We describe our implementation
+mostly in terms of machine words.
+
 For Ascon, we won't need multiplication instructions or atomic memory access.
 The compressed instructions are used transparently by the assembler: Each
 compressed instruction corresponds to a single full size instruction and
