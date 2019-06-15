@@ -6,6 +6,7 @@
 #include "tests.h"
 
 #define REPETITIONS 0x20
+#define ROUNDS 120
 
 extern unsigned int getcycles();
 extern void permutation(unsigned char *state, int start);
@@ -21,19 +22,20 @@ void permutation_benchmark() {
 
     for (size_t i = 0; i < REPETITIONS; i++) {
         permutation_times[i] = -getcycles();
-        permutation(buf, 6);
+        permutation(buf, 2 * ROUNDS);
         permutation_times[i] += getcycles();
     }
 
     for (size_t i = 0; i < REPETITIONS; i++) {
         empty_times[i] = -getcycles();
+        permutation(buf, ROUNDS);
         empty_times[i] += getcycles();
     }
 
     qsort(permutation_times, REPETITIONS, sizeof(unsigned int), compare_ints);
     qsort(empty_times, REPETITIONS, sizeof(unsigned int), compare_ints);
 
-    printf("cycles for 6 permutation rounds: %d\n",
+    printf("cycles for %d permutation rounds: %d\n", ROUNDS,
             permutation_times[REPETITIONS / 2] - empty_times[REPETITIONS / 2]);
 }
 
