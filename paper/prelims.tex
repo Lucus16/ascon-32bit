@@ -115,6 +115,7 @@ incorrect implementations to go undetected more easily.
     \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
     \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
     \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
+    \\ $\mathbf{2}^l$ & set of messages of $l$ bits
 \end{tabular}
 \end{center}
 \caption{The following table specifies the symbols and notation used in this
@@ -124,52 +125,99 @@ document.}
 
 \subsubsection{Formal definition}
 
-Security of encryption systems is often defined with respect to a security
-parameter. The \emph{security parameter} specifies how much effort is required
-to break the security properties of the system. The security parameter is
-expressed in bits and is equivelant to the 2-log of the number of operations
-needed to break the security claim. A system is secure when no algorithm exists
-that can break any of its security requirements in fewer operation than
-specified by its security parameter.
+To formalize AEAD schemes, we begin by defining their interface: An AEAD scheme
+is defined by a tuple of functions $(\mathcal{E}, \mathcal{D})$. $\mathcal{E}$
+is a function that takes a key, a nonce, some associated data and a message and
+produces a ciphertext and an authentication tag.
 
-An authenticated encryption with associated data scheme is defined as a tuple of
-functions $(E, D)$ with the following properties:
-
-$E$ is a function that takes a key, a nonce, some associated data and a message
-and produces a ciphertext and an authentication tag.
 \begin{equation}
-    E \colon K \times N \times A \times M \to C \times T
+    \mathcal{E} : K \times N \times A \times M \to C \times T
 \end{equation}
 
-$D$ is a function that takes a key, a nonce, some associated data, a ciphertext
-and an authentication tag and produces either a failure or a message.
+$\mathcal{D}$ is a function that takes a key, a nonce, some associated data, a
+ciphertext and an authentication tag and produces either a failure or a message.
+
 \begin{equation}
-    D \colon K \times N \times A \times C \times T \to M \cup \{ \bot \}
+    \mathcal{D} : K \times N \times A \times C \times T \to M \cup \{ \bot \}
 \end{equation}
 
 Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
 message. The result of decryption after encryption with the same nonce, key and
-associated data is the original message. In particular, this means decryption
-never returns $\bot$ when supplied with valid encryption results.
-\begin{equation}
-    D(k, n, a, E(k, n, a, m)) = m
-\end{equation}
-
-% TODO: No algorithm constructs valid decryption inputs different from ones seen
-% before without the key.
-% TODO: No algorithm decrypts without the correct key, nonce, tag, associated
-% data and ciphertext.
-% TODO: Different nonces imply unrelated ciphertexts
-% TODO: Incorrect tag, key or associated data implies decryption failure
-
-Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
-message and let $c, t = E(k, n, a, m)$. Authenticity means the probability is
-negligable that a decryption succeeds for a different ciphertext and the same
-nonce, key, associated data and tag.
+associated data is the original message.
 
 \begin{equation}
-    P(D(k, n, a, c', t) \neq \bot \mid c \neq c') < \frac{1}{2^S}
+    \forall k, n, a, m.\quad \mathcal{D}(k, n, a, \mathcal{E}(k, n, a, m)) = m
 \end{equation}
+
+In particular, this means decryption never returns $\bot$ when supplied with
+valid encryption results. This property ensures the message can be recovered
+from the ciphertext and related data. If this property were not required, an
+AEAD scheme could be constructed simply by always returning the empty ciphertext
+for encryption and failure for decryption.
+
+The remaining properties of AEAD systems, authenticity and confidentiality, must
+be defined with respect to a \emph{security parameter}. The security parameter
+specifies how much effort is required to break the security properties of the
+system. The security parameter is expressed in bits and is equivelant to the
+2-log of the number of operations needed to break the security claim. A property
+holds when no algorithm exists that can break it in fewer operation than
+specified by its security parameter. We say that no \emph{efficient} algorithm
+exists.
+
+We can now define the property of authenticity. First, we define $V_k$ to be the
+set of valid decryption inputs for key $k$.
+
+\begin{equation}
+    \forall k \in K.\quad
+    V_k = \{ (n, a, c, t) \mid \mathcal{D}(k, n, a, c, t) \neq \bot \}
+\end{equation}
+
+Authenticity is violated when an efficient algorithm exists that constructs
+valid and new decryption inputs without the correct key. An encryption system
+provides authenticity if no such algorithm exists.
+
+\begin{equation}
+    \nexists \mathcal{A}.\quad \forall k \in K, s \in \mathcal{P}(V_k).\quad
+    \mathcal{A}(s) \notin s \wedge \mathcal{A}(s) \in V_k
+\end{equation}
+
+To define confidentiality, we must define what it means to know something about
+a message. In order to keep this definition simple, we will assume the length of
+a message is always known, as is often the case with AEAD schemes.
+
+We will define knowledge about a message $m$ of length $l$ as a probability
+distribution over all messages of that length, $\mathbf{2}^l$. We define $u_l$
+to be the uniform probability distribution, which has no information about any
+message.
+
+\begin{equation}
+    \forall l \in \mathbb{N}, m \in \mathbf{2}^l.\quad u_l(m) = \frac{1}{2^l}
+\end{equation}
+
+When the probability that a distribution $d$ picks $m$ is greater then the
+probability $u$ picks $m$ by a factor of $2^b$, we say $d$ knows $b$ bits about
+$m$. $I(d, m)$ represents the information in bits that $d$ has about $m$.
+
+\begin{equation}
+    \forall l \in \mathbb{N}, m \in \mathbf{2}^l, d \in D(\mathbf{2}^l).\quad
+    I(d, m) = \frac{d(m)}{u_l(m)}
+\end{equation}
+
+An encryption scheme provides confidentiality if no efficient algorithm exists
+that determines knowledge about a message given its decryption inputs and all
+prior public knowledge, which can include many other valid decryption inputs.
+
+\begin{equation}
+    \dots
+\end{equation}
+
+% \begin{equation}
+%     \nexists \mathcal{A}.\quad \forall k, n, a, c, t.\quad
+%     \forall s \in \mathcal{P}(V_k).\quad
+% \end{equation}
+
+% TODO: Confidentiality No algorithm distinguishes between two ciphertexts without
+% the correct key, nonces, tags, associated data
 
 \subsection{Ascon internals}
 
@@ -302,12 +350,11 @@ example of this is that the CISC x86 architecture allows memory access as part
 of almost every instruction, while RISC architectures usually have separate
 memory access instructions.
 
-RISC-V takes RISC to an extreme, it is much more reduced than for example ARM,
-which is often called a RISC architecture as well. For example, RISC-V does not
-save carries for arithmetic operations and it only has about 40 instruction in
-the base integer instruction set, all of which do only one thing.
-Figure~\ref{opcodes} shows the eight instructions needed for the inner loop of
-Ascon.
+RISC-V takes RISC to an extreme, it is much more reduced than ARM, which stands
+for Advanced RISC Machine. For example, RISC-V does not save carries for
+arithmetic operations and it only has about 40 instruction in the base integer
+instruction set, all of which do only one thing. Figure~\ref{opcodes} shows the
+eight instructions needed for the inner loop of Ascon.
 
 % TODO: instructions specify destination first
 % TODO: macro syntax
