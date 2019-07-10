@@ -1,0 +1,387 @@
+\section{Preliminaries}
+
+\subsection{Symmetric encryption}
+
+In communication, it is often desirable to keep one's messages hidden from third
+parties. This property is called \emph{confidentiality}. In more precise terms,
+confidentiality means that a message is transformed in such a way that
+authorized parties can recover the original message from it, while unauthorized
+parties can not.
+
+In symmetric encryption, the authorized parties are defined as
+the parties that know some secret information, called the \emph{key}. The
+original message is called the \emph{plaintext} and the transformed message is
+called the \emph{ciphertext}. The transformation from plaintext to ciphertext is
+called \emph{encryption}, while the transformation back is called
+\emph{decryption}. When the same secret key is needed for both encryption and
+decryption, it is called \emph{symmetric encryption}. Because the key is needed
+for decryption, unauthorized parties are prevented from recovering the
+plaintext.
+
+\subsubsection{Nonces}
+
+While unauthorized parties are unable to decrypt ciphertexts, similar plaintext
+may result in similar ciphertexts, and unauthorized parties may therefore detect
+when similar messages are sent. In order to prevent this, during every
+encryption, a different number is used to modify the resulting ciphertext. It is
+needed again during decryption in order to revert that modification. Because a
+different number is used every time, the resulting ciphertexts will also differ.
+
+This number is called the \emph{nonce}, short for number used once. If it is
+used more than once, unauthorized parties may be able to infer information about
+the difference or similarity of the messages it was used for. Usually, this
+number is made from a sufficiently large amount of random bits that the chance
+of it occuring twice is negligable. When it is chosen randomly, it must be
+attached to the ciphertext unencrypted, as decryption will fail without it.
+
+A counter can also be used to generate unique nonces, if it is sufficiently
+large that it will never overflow within its lifetime. This has the advantage
+that a good source of randomness is not needed, and the disadvantage that the
+current count must be kept track of and synchronized between uses. To reduce
+synchronization overhead, some systems reserve ranges of counter values ahead of
+time.
+
+If there is no space to attach the nonce to the ciphertext, it is not possible
+to use a random nonce. In this case, information that is available during both
+the encryption and decryption should be used to construct a unique nonce. For
+example, when adding encryption support to existing filesystems, there may be no
+space for nonces in the existing data structures and these probably need to stay
+compatible with earlier versions. In this case, a nonce for a block can be
+constructed by combining the inode and offset within the file into a nonce. With
+this construction, uniqueness cannot be guaranteed, so security is reduced, but
+if encryption is otherwise not possible, it is still an improvement over
+unencrypted data or encryption without nonces.
+
+\subsubsection{Authentication}
+
+Although unauthorized parties cannot recover the plaintext from the ciphertext,
+they may be able to modify the ciphertext, resulting in a modified plaintext
+after decryption. It is not always possible to prevent such modifications, but
+it is possible to detect them. The property that it is detectable whether a
+message has been changed, is called \emph{integrity}.
+
+Unauthorized parties may also attempt to construct messages from scratch.
+Because the key is needed for encryption, they will be unable to encrypt a
+specific plaintext, however, they will be able to send specific ciphertexts,
+even if they don't know what plaintexts corresponds to them. In order to prevent
+this, it is desirable for the receiving party to be able to verify that a
+message comes from an authorized party. Together with integrity, this property
+is called \emph{authenticity}. Encryption that provides both confidentiality and
+authenticity to the plaintext is called \emph{authenticated encryption} or
+\emph{AE}.
+
+Authenticated encryption is usually implemented by generating an
+\emph{authentication tag}. Just like the ciphertext, this tag is based on the
+key, the nonce and the plaintext. This tag is needed again during decryption.
+The decryption algorithm checks if the tag is correct and only returns a
+plaintext if it is. If the ciphertext is modified, it will decrypt to a
+different plaintext from the one used to generate the tag and cause the
+decryption to fail. Because the tag also depends on the key, valid tags cannot
+be created without it.
+
+\subsubsection{Associated data}
+
+Even when confidentiality and authenticity are assured, unauthorized parties may
+still repeat a message they have seen before in a different context. To prevent
+this, some data about the context in which a message is allowed to appear can be
+associated with it. This is one of the uses of \emph{associated data}, which is
+defined as information that requires authentication but not confidentiality.
+An authenticated encryption scheme that supports this is called
+\emph{authenticated encryption with associated data} or \emph{AEAD}.
+
+Just like nonces, \emph{associated data} is used during encryption to modify the
+resulting ciphertext and is needed during decryption in order to revert that
+modification. It does not need to be stored or sent with the ciphertext if it
+can be inferred during both encryption and decryption.
+
+Because the correct associated data is needed during decryption, it prevents
+messages from being decrypted using the wrong associated data. If the associated
+data is inferred from the context, it can prevent encrypted data from being
+decrypted in the wrong context. For example, this prevents two encrypted records
+containing positive and negative information respectively from being swapped
+between contexts specifying different persons.
+
+Note that some encryption schemes don't need the associated data for decryption.
+Correct implementations of these will still check the associated data and return
+failure if it does not match. The behavior is the same, but such schemes allow
+incorrect implementations to go undetected more easily.
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{c l}
+    \hex{1337} & hexadecimal number
+    \\ $\bot$ & verification failure
+    \\ $x \cat y$ & concatenation of bitstrings $x$ and $y$
+    \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
+    \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
+    \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
+    \\ $\mathbf{2}^l$ & set of messages of $l$ bits
+\end{tabular}
+\end{center}
+\caption{The following table specifies the symbols and notation used in this
+document.}
+\label{notation}
+\end{figure}
+
+\subsubsection{Formal definition}
+
+To formalize AEAD schemes, we begin by defining their interface: An AEAD scheme
+is defined by a tuple of functions $(\mathcal{E}, \mathcal{D})$. $\mathcal{E}$
+is a function that takes a key, a nonce, some associated data and a message and
+produces a ciphertext and an authentication tag.
+
+\begin{equation}
+    \mathcal{E} : K \times N \times A \times M \to C \times T
+\end{equation}
+
+$\mathcal{D}$ is a function that takes a key, a nonce, some associated data, a
+ciphertext and an authentication tag and produces either a failure or a message.
+
+\begin{equation}
+    \mathcal{D} : K \times N \times A \times C \times T \to M \cup \{ \bot \}
+\end{equation}
+
+Let $k$ be a key, $n$ be a nonce, $a$ be any associated data and $m$ be a
+message. The result of decryption after encryption with the same nonce, key and
+associated data is the original message.
+
+\begin{equation}
+    \forall k, n, a, m.\quad \mathcal{D}(k, n, a, \mathcal{E}(k, n, a, m)) = m
+\end{equation}
+
+In particular, this means decryption never returns $\bot$ when supplied with
+valid encryption results. This property ensures the message can be recovered
+from the ciphertext and related data. If this property were not required, an
+AEAD scheme could be constructed simply by always returning the empty ciphertext
+for encryption and failure for decryption.
+
+The remaining properties of AEAD systems, authenticity and confidentiality, must
+be defined with respect to a \emph{security parameter}. The security parameter
+specifies how much effort is required to break the security properties of the
+system. The security parameter is expressed in bits and is equivelant to the
+2-log of the number of operations needed to break the security claim. A property
+holds when no algorithm exists that can break it in fewer operation than
+specified by its security parameter. We say that no \emph{efficient} algorithm
+exists.
+
+We can now define the property of authenticity. First, we define $V_k$ to be the
+set of valid decryption inputs for key $k$.
+
+\begin{equation}
+    \forall k \in K.\quad
+    V_k = \{ (n, a, c, t) \mid \mathcal{D}(k, n, a, c, t) \neq \bot \}
+\end{equation}
+
+Authenticity is violated when an efficient algorithm exists that constructs
+valid and new decryption inputs without the correct key. An encryption system
+provides authenticity if no such algorithm exists.
+
+\begin{equation}
+    \nexists \mathcal{A}.\quad \forall k \in K, s \in \mathcal{P}(V_k).\quad
+    \mathcal{A}(s) \notin s \wedge \mathcal{A}(s) \in V_k
+\end{equation}
+
+To define confidentiality, we must define what it means to know something about
+a message. In order to keep this definition simple, we will assume the length of
+a message is always known, as is often the case with AEAD schemes.
+
+We will define knowledge about a message $m$ of length $l$ as a probability
+distribution over all messages of that length, $\mathbf{2}^l$. We define $u_l$
+to be the uniform probability distribution, which has no information about any
+message.
+
+\begin{equation}
+    \forall l \in \mathbb{N}, m \in \mathbf{2}^l.\quad u_l(m) = \frac{1}{2^l}
+\end{equation}
+
+When the probability that a distribution $d$ picks $m$ is greater then the
+probability $u$ picks $m$ by a factor of $2^b$, we say $d$ knows $b$ bits about
+$m$. $I(d, m)$ represents the information in bits that $d$ has about $m$.
+
+\begin{equation}
+    \forall l \in \mathbb{N}, m \in \mathbf{2}^l, d \in D(\mathbf{2}^l).\quad
+    I(d, m) = \frac{d(m)}{u_l(m)}
+\end{equation}
+
+An encryption scheme provides confidentiality if no efficient algorithm exists
+that determines knowledge about a message given its decryption inputs and all
+prior public knowledge, which can include many other valid decryption inputs.
+
+\begin{equation}
+    \dots
+\end{equation}
+
+% \begin{equation}
+%     \nexists \mathcal{A}.\quad \forall k, n, a, c, t.\quad
+%     \forall s \in \mathcal{P}(V_k).\quad
+% \end{equation}
+
+% TODO: Confidentiality No algorithm distinguishes between two ciphertexts without
+% the correct key, nonces, tags, associated data
+
+\subsection{Ascon internals}
+
+Ascon~\cite{ascon} is an authenticated encryption cipher designed for use in
+resource-constrained environments, like embedded devices. It has an internal
+state of just 320 bits, which can be kept in registers on most architectures.
+This ensures moving data between registers and memory is kept to a minimum,
+which is important, as embedded devices usually do not have the same amount of
+cache available as larger systems.
+
+\subsubsection{Mode of operation}
+
+Ascon aims to provide 128 bits of security. To that end, its key, nonce, and
+authentication tag are 128 bits in size each. The plaintext, ciphertext and
+associated data can all be of any length and are processed in \emph{blocks}.
+There are multiple variants of Ascon, we implement two of them: Ascon-128, which
+processes 64-bit blocks and Ascon-128a, which processes 128-bit blocks.
+
+Ascon uses a 320-bit state and a permutation that mixes the state in a way that
+is hard to reverse. This permutation consists of a transformation that is
+applied in multiple rounds, each with a different round constant. Both variants
+of Ascon use permutation $p^a$, which consists of 12 rounds, during
+initialization and finalization. After processing each block, Ascon uses
+permutation $p^b$, which consists of 6 rounds in Ascon-128 and 8 rounds in
+Ascon-128a. Figure~\ref{encdec} gives an overview of encryption and decryption.
+
+\input{encdec}
+
+Encryption starts with the initialization of the state. The state is initialized
+to the concatenation of an initialization vector, the key and the nonce. The
+initialization vector encodes the parameters of the variant of Ascon that it is
+used for. This initial state is then passed through the first permutation,
+$p^b$. Finally, the key is bitwise added to the least significant bits of the
+state again.
+
+After initialization, the associated data is mixed into the state. If there is
+no associated data, the state is left unmodified. Otherwise, the associated data
+is padded and split into blocks. Each of the blocks is bitwise added to the most
+significant bits of the state, followed by applying the second permutation,
+$p^b$. At the end, the least significant bit is inverted. This is done to
+separate the associated data from the plaintext, which comes next.
+
+The plaintext is padded and split into blocks in the same way as the associated
+data. Each block of plaintext is bitwise added to the most significant bits of
+the state. The result of this bitwise addition also forms the corresponding
+block of the ciphertext. After adding each block, except for the last,
+permutation $p^b$ is applied again.
+
+Finalization begins with bitwise adding the key to the most significant bits of
+the state that were not used to add the plaintext. After that, the permutation
+$p^a$ is applied again and finally, the key is bitwise added to the least
+significant bits of the state again. The result of this last operation is used
+as the authentication tag.
+
+Decryption is identical to encryption, except the ciphertext is processed in a
+slightly different way from the plaintext: Each block of the ciphertext is again
+bitwise added to the most significant bits of the state to form the plaintext,
+but instead of using this result in the state, the most significant bits of the
+state are replaced with the ciphertext before the bitwise addition.
+
+\subsubsection{Permutation}
+
+Ascon's main component is a permutation consisting of three phases, which are
+applied in several rounds. Ascon-128 uses 6 rounds to process blocks of 64 bits
+at a time. Ascon-128a uses 8 rounds to process blocks of 128 bits at a time.
+Both use keys of 128 bits and 12 rounds to initialize and finalize the state. A
+round consists of the following three phases: The addition of the round
+constant, the substitution layer and the linear diffusion layer. Each of these
+phases modify the internal state in a different way. The internal state consists
+of 320 bits, logically split into five 64-bit state words called $x_0$, $x_1$,
+$x_2$, $x_3$ and $x_4$.
+
+The round constant is a single byte that changes from round to round and is
+added bitwise to the least significant 8 bits of $x_2$. It ensures rounds are
+not all identical. The final round constant is always \hex{4b}. The round
+constant changes linearly, decreasing by \hex{f} every round. This means
+the round constant can be computed easily based on the number of rounds that are
+left.
+
+The substitution layer applies a 5-bit lookup function (called an S-box) in
+parallel to the five state words. It provides non-linear mixing between the five
+state words. It is usually implemented as a sequence of bitwise operations which
+compute the substitution on five machine words in parallel.
+
+The linear diffusion layer provides linear mixing of the bits within each state
+word. It consists of a bitwise addition of the original state word with the same
+state word rotated by two different amounts. Each of the five state words uses
+different rotation amounts.
+
+% TODO: Expand Ascon permutation?
+
+\subsection{RISC-V}
+RISC-V~\cite{riscv} is a hardware instruction set architecture which aims to be
+completely open: Anyone is free to create custom variations and implementations.
+It is also designed to be modular: A basic RISC-V processor starts with just the
+base integer instruction set \texttt{I}, using either 32-bit or 64-bit machine
+words. Several extensions are available which offer different common processor
+features, such as support for floating point operations. Manufacturers can
+choose to implement any combination of these extensions and will usually pick
+extensions based on the intended application.
+
+In this thesis, we will use the HiFive1 development board created by SiFive. It
+features a \texttt{RV32IMAC} processor. The \texttt{RV32I} stands for the RISC-V
+32-bit base integer instruction set. The letters that follow stand for the
+extensions that are implemented in this processor: \texttt{M} stands for the
+multiplication extensions which offers integer multiplication and division
+instructions, \texttt{A} stands for the atomic memory access extension and
+\texttt{C} stands for the compressed instruction set extension which can be used
+to reduce code size.
+
+At this point it is important to note that our target processor uses 32-bit
+\emph{machine words}, while Ascon is defined in terms of five 64-bit
+\emph{state words}. These state words do not fit in a single register, so each
+state word will be stored using two registers. We describe our implementation
+mostly in terms of machine words.
+
+For Ascon, we won't need multiplication instructions or atomic memory access.
+The compressed instructions are used transparently by the assembler: Each
+compressed instruction corresponds to a single full size instruction and
+whenever a compressed instruction is available, it will be used instead of a
+full size instruction. We would like to use the bit manipulation extension, but
+it is not available on this board and may not be available on other embedded
+RISC-V systems, so we optimize Ascon for RISC-V processors without it.
+
+\emph{RISC} stands for Reduced Instruction Set Computer, as opposed to CISC,
+which stands for Complex Instruction Set Computer. RISC architectures aim to
+have a small set of simple and general instructions, while CISC architectures
+aim to provide complex instructions which can do multiple things at once. An
+example of this is that the CISC x86 architecture allows memory access as part
+of almost every instruction, while RISC architectures usually have separate
+memory access instructions.
+
+RISC-V takes RISC to an extreme, it is much more reduced than ARM, which stands
+for Advanced RISC Machine. For example, RISC-V does not save carries for
+arithmetic operations and it only has about 40 instruction in the base integer
+instruction set, all of which do only one thing. Figure~\ref{opcodes} shows the
+eight instructions needed for the inner loop of Ascon.
+
+% TODO: instructions specify destination first
+% TODO: macro syntax
+% TODO: Check for other missing RISC-V info
+
+\begin{figure}
+\begin{tabular}{l p{0.77\linewidth}}
+       \texttt{and r, a, b} & Store the bitwise and of registers~\texttt{a} and
+        \texttt{b} in register~\texttt{r}.
+    \\ \texttt{or r, a, b} & Store the bitwise or of registers~\texttt{a} and
+        \texttt{b} in register~\texttt{r}.
+    \\ \texttt{xor r, a, b} & Store the bitwise addition of registers~\texttt{a}
+        and \texttt{b} in register~\texttt{r}. This operation is also known as
+        bitwise exclusive or.
+    \\ \texttt{not r, a} & Store the bitwise inversion of register~\texttt{a} in
+        register~\texttt{r}.
+    \\ \texttt{addi r, a, b} & Store the sum of the value of register~\texttt{a}
+        and constant~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{srli r, a, b} & Store the value of register~\texttt{a} shifted
+        right by constant amount~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{ssli r, a, b} & Store the value of register~\texttt{a} shifted
+        left by constant amount~\texttt{b} in register~\texttt{r}.
+    \\ \texttt{bne a, b, l} & Jump to the label~\texttt{l} if the value of
+        register~\texttt{a} is not the same as the value of register~\texttt{b}.
+\end{tabular}
+
+\caption{The RISC-V instructions used in the inner loop of Ascon.}
+
+\label{opcodes}
+\end{figure}

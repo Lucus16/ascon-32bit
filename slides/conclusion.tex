@@ -1,0 +1,26 @@
+\section{Discussion}
+
+We have optimized the Ascon internal loop for the RISC-V RV32IMAC architecture.
+While doing this, we have noted that both Ascon and RISC-V are very simple and
+have little room for optimization. Nonetheless, we have found improvements in
+the boolean formulas used to compute the substitution layer and an oppertunity
+to combine the round constant with the loop counter. We have also switched the
+representation of the state to big endian in order to reduce the number of
+endian conversions necessary. Our improvements have provided a speedup of 29%
+relative to the reference implementation.
+
+There is still room for more improvement however. We have omitted to optimize
+the Ascon outer loop. Because RISC-V offers plenty of registers, writing the
+outer loop in assembly makes it possible to avoid loading and storing the state
+to memory altogether. It is also possible that the boolean formulas of the
+substitution layer are not yet optimal. Finding and proving the optimal formulas
+will require some careful analysis however, as the search-space is quite large.
+
+Finally, it is important to note that our optimizations are quite general and
+should be portable to other architectures. Our new boolean formulas do not only
+improve speed from 22 to 17 cycles, but also register usage from 5 to 3
+temporary registers. This makes it plausible to implement the substitution layer
+without needing the stack on 32-bit ARM architectures which often only have 14
+registers available for implementation. It is also of interest to improve our
+implementation using the RISC-V bit manipulation extension, once it is frozen
+and more widely available.

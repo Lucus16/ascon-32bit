@@ -1,0 +1,57 @@
+\section{Introduction}
+
+In recent years, many critical vulnerabilities have been found in various kinds
+of software and hardware. The software industry continues to grow and the value
+of hacking grows with it. Making software secure is hard and many companies
+consider it a waste of money. This has lead to botnets, among other things.
+Botnets usually consist of a large number of cheap internet-connected consumer
+devices that are easily hacked. Because the profit margins are smaller for cheap
+devices, there is often less money available for implementing good security.
+
+One way to make good security cheaper is by providing security primitives with
+simple interfaces that nonetheless ensure all desirable properties. An example
+of this is \emph{authenticated encryption} systems, which provide all of the
+most important security properties for symmetric encryption. By using
+authenticated encryption, a developer does not need to introduce authentication
+to an encryption system manually, leading to fewer possibilities to make
+mistakes.
+
+Authenticated encryption has traditionally been implemented by combining
+privacy-only encryption with message authentication codes. This combination
+turned out to be hard to make without introducing new vulnerabilities. In
+addition, performance suffers because two passes need to be made over the
+plaintext, one for encryption and one for authentication. To resolve this,
+cryptographers have called for new primitives that integrate all desirable
+properties.
+
+This call has taken the shape of several competitions, where a diverse set of
+teams each publish a family of new primitives, followed by public analysis of
+these new primitives by many other researchers. New primitives are then selected
+based on how well they withstood public analysis.
+
+Ascon is one of these new primitives, aimed at lightweight applications. It was
+first submitted to the CAESAR competition~\cite{caesar} and has been selected as
+the first choice for lightweight applications in the final portfolio. It was
+also recently submitted to be considered for standardization in NIST Lightweight
+Cryptography~\cite{nistlc} and has been selected as a round~1 candidate.
+
+While secure software is important, the hardware it runs on must also be secure.
+The integrated circuit industry has tradionally been a closed ecosystem. Chip
+manufacturers keep their implementations secret in order to monopolize the
+market. This means that when a vulnerability is discovered in a chip, consumers
+are entirely dependent on the manufacturer to fix them. It also makes it hard
+for third parties to verify a chips behavior.
+
+RISC-V is a hardware instruction set architecture that intends to solve this
+issue by being completely open-source. This means anyone is free to use,
+implement, extend and adapt it. As a result, RISC-V has been gaining popularity
+with researchers as well as companies. RISC-V is an architecture based on RISC
+principles, which makes it a good fit for low-power applications.
+
+So far, there has been little work towards optimizing crypto algorithms for
+RISC-V in software. Most efforts have been focused on creating hardware
+extensions for RISC-V as this was not possible with closed-ecosystem
+architectures. Despite the fact that RISC-V extensions do not have licensing
+costs and have reduced development costs, chip manufacturing remains expensive,
+so fast software implementations remain important. We optimize the Ascon
+authenticated encryption system for the RISC-V instruction set architecture.

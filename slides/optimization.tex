@@ -1,0 +1,271 @@
+\section{Optimization}
+
+In this section, we will optimize Ascon in several parts. We begin by looking at
+the state representation and we continue by considering the possibilities for
+each phase of the Ascon permutation. We find efficient implementations for them
+and consider whether further improvement is possible. In the end, we look at the
+entire round and the entire permutation, which loops over several rounds.
+
+\subsection{Endianness}
+
+The first optimization we can make is due to endianness. Ascon uses big endian
+state words, while most processors, including the HiFive1, support little endian
+memory access only. This means the endianness of the plaintext and the
+associated data needs to be reversed before it can be merged into the state.
+
+The reference implementation switches endianness while loading and storing the
+Ascon state to memory every time new data needs to be merged into it. It does
+this by storing individual bytes, which means 40 load and store operations are
+needed, while just 10 would be sufficient if the endianness had matched.
+
+To improve on this number, it's possible to keep the endianness of the state the
+same at all times and instead switch the endianness of the data that needs to be
+merged into it. For Ascon128, this means only 64 bits of data needs their
+endianness reversed instead of 320 bits, and for Ascon128a, only 128 bits of
+data needs their endianness reversed. In addition, the data that needs to be
+merged into the state only needs to be loaded, it doesn't need to be stored in
+the same endianness again.
+
+\subsection{Substitution layer}
+
+The substitution layer in Ascon is a 5-bit S-box which is applied in parallel to
+64 sets of 5 bits. This allows an efficient implementation using
+\emph{bit slicing}. Bit slicing is a technique for computing many lookup tables
+in parallel and in constant time by computing the lookup table using binary
+operations. Each of these binary operations take two bits as input and produce
+one bit as output. All common architectures have bitwise operation instructions
+that run such binary operations in parallel on entire machine words.
+
+Ascon was optimized for bit slicing: The 5 bits of the S-box are located in 5
+different state words in the same bit position. The Ascon paper describes an
+instruction sequence that uses bit slicing to compute the S-box efficiently.
+The instruction sequence translates to 22 single-cycle instructions.
+Because these can only be applied to 32 bits at a time on 32-bit platforms and
+the five state words are 64 bits in size each, they need to be run twice.
+Therefore, a straightforward implementation takes 44 cycles. The instruction
+sequence is shown in Figure~\ref{originalsbox}.
+
+\begin{figure}
+\begin{verbatim}
+    x0 ^=  x4;  x4 ^=  x3;  x2 ^=  x1;
+    t0  = ~x0;  t1  = ~x1;  t2  = ~x2;  t3  = ~x3;  t4  = ~x4;
+    t0 &=  x1;  t1 &=  x2;  t2 &=  x3;  t3 &=  x4;  t4 &=  x0;
+    x0 ^=  t1;  x1 ^=  t2;  x2 ^=  t3;  x3 ^=  t4;  x4 ^=  t0;
+    x1 ^=  x0;  x0 ^=  x4;  x3 ^=  x2;  x2  = ~x2;
+\end{verbatim}
+
+\caption{This instruction sequence is the parallel implementation the S-box of
+Ascon was designed for. It consists of 22 operations.}
+
+\label{originalsbox}
+\end{figure}
+
+The substitution layer can be optimized by computing the same S-box with a
+different formula. I derived shorter binary formulas by first writing down the
+the bit sequences that occur for each of the 5 output bits for all 32 inputs.
+This allowed me to recognize patterns in the bit sequences. I first eliminated
+input bits that did not affect the output, or only affected the output through a
+single exclusive or operation. Then, I looked at the remaining bit patterns and
+found short and overlapping binary formulas for them.
+
+Figure~\ref{shortformulas} shows the result of this analysis. These formulas are
+based on three bitwise additions which are used three times each. Three
+operations are used to compute these bitwise additions and 14 more operations
+are then used to compute all formulas. This results in a total of 17 operations,
+five fewer than the reference implementation.
+
+\begin{figure}
+\begin{align*}
+   o_0 & = i_3 \xor i_4 \xor (i_1 \vee (i_0 \xor i_2 \xor i_4))
+\\ o_1 & = i_0 \xor i_4 \xor ((i_1 \xor i_2) \vee (i_2 \xor i_3))
+\\ o_2 & = i_1 \xor i_2 \xor (i_3 \vee \neg i_4)
+\\ o_3 & = i_1 \xor i_2 \xor (i_0 \vee (i_3 \xor i_4))
+\\ o_4 & = i_3 \xor i_4 \xor (i_1 \wedge \neg (i_0 \xor i_4))
+\end{align*}
+
+\caption{These formulas compute the Ascon S-box in 17 operations (once duplicate
+operations are taken out), while the reference implementation uses 22
+operations. $o_n$ indicates output bit $n$ and $i_n$ indicates input bit $n$.}
+
+\label{shortformulas}
+\end{figure}
+
+From these, an instruction sequence can be produced like the one in
+Figure~\ref{substitution}. It computes all five of the above formulas with one
+caveat: The results end up in different registers. We will compensate
+for this in the linear diffusion layer.
+
+\begin{figure}[p]
+\lstinputlisting[style=customasm,firstline=9,lastline=27]{../riscv/permutation.s}
+
+\caption{This macro computes boolean formulas of the substitution layer in
+parallel on the registers \texttt{s0} through \texttt{s4}, using \texttt{t0},
+\texttt{t1} and \texttt{t2} as temporary registers. This macro must be run
+twice with different state registers, because each 64-bit state word is split in
+two 32-bit machine words. Note that after this macro, the state words end up
+in different registers. In order to make space to move the state words back into
+position, the final result is stored in register \texttt{r0} instead.}
+
+\label{substitution}
+\end{figure}
+
+\subsubsection{Superoptimization}
+
+As these formulas were constructed by hand, it may be possible to do better.
+There are many possible formulas, so it is infeasable to find the best option by
+hand. One option is to use something like the GNU
+Superoptimizer~\cite{superoptimizer} which tries all possible instruction
+sequence of a certain length in order to see if any of them computes a specific
+formula. Unfortunately, according to its README, the longest instruction
+sequence it was able to find for anything was seven instructions long. This is
+not enough, since it is expected that at least five bitwise addition operations
+and at least five bitwise and operations need to be computed, leading to a
+minimum of 10 instructions.
+
+Stoffelen~\cite{sat} attempted to optimize binary formulas for S-boxes of
+various cryptographic primitives using a SAT solver. He found ways to compile an
+S-box to a satisfiability problem determining whether it can be computed in a
+given number of instructions. I made use of his project to prove that it is not
+possible to compute the Ascon S-box in 10 instructions. Unfortunately, the
+project did not finish within reasonable time for instruction counts larger than
+10, so I was unable to verify whether 17 instructions is the best number
+possible.
+
+\subsection{Linear diffusion layer}
+
+The linear diffusion layer in Ascon mixes the bits with each of the five state
+words. Each of them is rotated by two different amounts and added with the
+results. For each of the five state words, two different rotation amounts are
+used.
+
+The state words are 64 bits in size, so 64-bit rotations are used. On most
+64-bit architectures, this can be done with just one instruction, but 32-bit
+architectures generally don't have 64-bit rotate instructions.
+
+The most straightforward method of simulating a 64-bit rotate instruction is
+using shifts. By combining a left shift and a right shift, all bits of a single
+machine word can be placed at the correct offset. Because each shift loses some
+of the bits when they are shifted out, it is not possible to simulate a rotate
+instruction with one shift. Because a state word is two machine words in size,
+four shifts are needed in total. After this, there are four intermediate results
+that need to be combined to two resulting machine words. There are several
+options to combine these intermediate results:
+
+Since each bit will be zero in at least one of the two operands, the combining
+instructions can be bitwise or, bitwise exclusive or, or integer addition
+instructions. Since the results will be combined using bitwise exclusive or
+operations, we will use these for combining intermediate shift results as well.
+Because bitwise exclusive or operations are associative, it does not matter in
+what order all intermediate results are combined, which gives us more freedom
+during implementation. Bitwise exclusive or can also be seen as bitwise
+addition, or addition without any carries between the bits. I will use
+\emph{bitwise addition} to refer to this operation from here on.
+
+Because two shifts are needed to simulate one rotate instruction, it would be
+preferable to use the latter. Unfortunately, rotating both halves of a state
+word independently does not have the same effect as rotating the word as a
+whole.
+
+This is usually resolved using bit interleaving: By storing even-numbered bits
+in one word and odd-numbered bits in another, a 64-bit rotation can be simulated
+using two 32-bit rotations. For even rotation amounts, both words are rotated by
+half the amount. For odd rotation amounts, the words are rotated by half the
+amount, rounded up and down respectively, and then swapped. The disadvantage is
+that some extra cycles are needed to convert between bit-interleaved
+representation and normal representation.
+
+Unfortunately, the microcontroller we are targeting does not have rotate
+instructions at all. The SiFive HiFive1 does not include the bit-manipulation
+extension, which is where RISC-V introduces its rotate instructions. This means
+that we are stuck using the straightforward method using four shifts and two
+bitwise additions. The result also needs to be bitwise added back into the
+original, which takes another two instructions, one for each of the machine
+words. This means that handling one rotation takes eight instructions in total.
+
+There are five state words which each have two rotations applied to them. This
+means that a total of 80 instructions are needed for the linear diffusion layer. On
+32-bit RISC-V, without the bit manipulation extension, it is not possible to do
+better. This is easy to see:
+
+The only method of moving bits to different offsets is the shift instruction,
+and because some bits are lost when they are shifted out, there are always two
+needed to handle 32 bits, or one machine word. Therefore, to move all bits into
+two separate new positions for five state words, or ten machine word, a total of
+40 shifts are needed. Each of these shifts produces an intermediate result and
+all those intermediate results need to be merged back into the unrotated state
+words.
+
+Each merging instruction takes two operands and produces one result, reducing
+the number of intermediate results by one, so a total of 40 merging instructions
+is needed to merge all intermediate results. On the HiFive1, there are no
+instructions that can merge more than two machine words at a time. This means
+that it is not possible to do the linear diffusion layer in less than 80
+instructions. Figure~\ref{xorror} shows how the rotations for a single state
+word are implemented in RISC-V assembly.
+
+\begin{figure}[p]
+\lstinputlisting[style=customasm,firstline=39,lastline=56]{../riscv/permutation.s}
+
+\caption{The \texttt{xorror} macro applies the rotates and bitwise additions of
+the linear diffusion layer to a single state word. Because of the limitations of
+assembly macros, it takes many arguments:
+\texttt{dl} and \texttt{dh} are the registers for storing the low and high part
+of the result. \texttt{sl}, \texttt{sh}, \texttt{sl0}, \texttt{sh0},
+\texttt{sl1} and \texttt{sh1} are the source registers for the state word,
+without rotation, with rotation \texttt{r0} and with rotation \texttt{r1}
+respectively. Because 32-bit shift instructions can only shift by 31 at most,
+representing rotate amounts above 32 is done by subtracting 32 and swapping the
+respective source registers. This is why the source registers must be supplied
+three times.}
+
+\label{xorror}
+\end{figure}
+
+\subsection{Addition of round constant}
+
+The addition of the round constant is a very short phase: A single byte gets
+bitwise added to one of the state words. This takes one instruction. The correct
+value to be added still needs to be computed though. We note that the round
+constant for any given round is always \hex{f} lower than in the previous round.
+This means we can compute it based on the previous round with one subtraction.
+
+\subsection{Full round}
+
+The round constant for the initial round is based only on the number of rounds
+that will be run in that invocation of the permutation. Therefor, it can be a
+parameter to the permutation which is constant in every location where it is
+called. Because the constant is just one byte in size, the initial constant can
+be created with just one move immediate instruction.
+
+The initial constant has been chosen in such a way that the constant in the
+final round is always \hex{4b}. This means the current round constant can be
+used to check if we've reached the final round. This saves us the instructions
+necessary to keep track of the round number.
+
+As mentioned before, the substitution layer shuffles the state words into
+different registers and this needs to be resolved during the linear diffusion
+layer. The first step is to store one state word in temporary registers. That
+frees up the two registers corresponding to another state word. We compute the
+linear diffusion layer for the state word that should end up in those registers,
+thereby freeing another pair of registers, the ones this new state word was
+stored in.
+
+We repeat this five times, and at the end, we use the state word that was stored
+in the temporary registers. Figure~\ref{round} shows the inner loop for the
+entire round. The \texttt{xorror} macro's first two arguments are the registers
+where the result will be stored and the next two arguments are the registers
+that are freed up.
+
+\begin{figure}[p]
+\lstinputlisting[style=customasm,firstline=104,lastline=123]{../riscv/permutation.s}
+
+\caption{The main permutation loop that loops over all rounds in a permutation,
+defined in terms of the \texttt{sbox} and \texttt{xorror} macros.
+\texttt{t5} contains the round constant, \texttt{a0} through \texttt{a4}
+contain the least significant halves of the five state words, \texttt{s0}
+through \texttt{s4} contain the most significant halves of the five state words.
+\texttt{t0} through \texttt{t4} are used as temporary registers and \texttt{a5}
+contains the round constant where the loop should end, \hex{3c}.}
+
+\label{round}
+\end{figure}

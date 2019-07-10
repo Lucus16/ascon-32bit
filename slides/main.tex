@@ -1,0 +1,345 @@
+\documentclass[17pt]{beamer}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[page]{appendix}
+\usepackage{caption}
+\usepackage[scaled=0.8]{DejaVuSansMono}
+\usepackage{listings}
+\usepackage{sfmath}
+\usepackage{textcomp}
+\usepackage{tikz}
+\usepackage{url}
+\usepackage{xcolor}
+
+\beamertemplatenavigationsymbolsempty
+\setbeamertemplate{frametitle}[default][center]
+
+\newcommand{\hex}[1]{$\mathtt{#1}_h$}
+\newcommand{\xor}[0]{\oplus}
+\newcommand{\cat}[0]{\parallel}
+\newcommand{\ror}[0]{\ggg}
+
+\newcommand{\red}[1]{\textcolor[rgb]{0.9,0.0,0.0}{#1}}
+\newcommand{\blu}[1]{\textcolor[rgb]{0.0,0.0,0.9}{#1}}
+\newcommand{\grn}[1]{\textcolor[rgb]{0.0,0.6,0.0}{#1}}
+
+\definecolor{comment}{gray}{0.4}
+
+\lstdefinestyle{customasm}{,
+    language={[x86masm]Assembler},
+    belowcaptionskip=1\baselineskip,
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    keepspaces=true,
+    upquote=true,
+    numbers=none,
+    numberstyle=\ttfamily\color{comment},
+    keywords={.endm,.macro,.text,.globl},
+    keywordstyle=\bfseries,
+    morecomment=[f][\color{comment}]{\#},
+}
+
+\title{Optimizing Ascon on RISC-V}
+\author{Lars Jellema}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{frame}
+    \frametitle{Ascon}
+    \begin{itemize}
+        \item Authenticated Encryption with Associated Data
+        \item Small internal state
+        \item Inner loop: permutation
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{RISC-V}
+    \begin{itemize}
+        \item Instruction Set Architecture
+        \item Open
+        \item RV32IMAC
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Mode of Operation}
+    Initialization and Associated Data
+    \begin{center}
+        \input{enca}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Mode of Operation}
+    Encryption and Finalization
+    \begin{center}
+        \input{encb}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Mode of Operation}
+    Decryption and Finalization
+    \begin{center}
+        \input{decb}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Endianness}
+    \begin{center}
+    \begin{tabular}{l l}
+        Ascon permutation & BE \\
+        Plaintext loading & LE \\
+    \end{tabular}
+    \begin{tabular}{l l}
+        \\\\
+        Convert on permutation & 100\% \\
+        Convert on load & 116\% \\
+    \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Questions?}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Permutation}
+    \begin{itemize}
+        \item Substitution layer
+        \item Linear diffusion layer
+        \item Addition of round constant
+        \item Loop counter
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Substitution Layer}
+    22 operations
+    \vfill
+    \begin{center}
+        \input{sbox}
+    \end{center}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Substitution Layer}
+    23 operations
+    \begin{align*}
+        o_0 & = i_3 \xor i_4 \xor (i_1 \vee (i_0 \xor i_4 \xor i_2)) \\
+        o_1 & = i_0 \xor i_4 \xor ((i_1 \xor i_2) \vee (i_2 \xor i_3)) \\
+        o_2 & = i_1 \xor i_2 \xor (i_3 \vee \neg i_4) \\
+        o_3 & = i_1 \xor i_2 \xor (i_0 \vee (i_3 \xor i_4)) \\
+        o_4 & = i_3 \xor i_4 \xor (i_1 \wedge \neg (i_0 \xor i_4)) \\
+    \end{align*}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Substitution Layer}
+    23 operations
+    \begin{align*}
+        o_0 & = \red{i_3 \xor i_4} \xor (i_1 \vee (\blu{i_0 \xor i_4} \xor i_2)) \\
+        o_1 & = \blu{i_0 \xor i_4} \xor ((\grn{i_1 \xor i_2}) \vee (i_2 \xor i_3)) \\
+        o_2 & = \grn{i_1 \xor i_2} \xor (i_3 \vee \neg i_4) \\
+        o_3 & = \grn{i_1 \xor i_2} \xor (i_0 \vee (\red{i_3 \xor i_4})) \\
+        o_4 & = \red{i_3 \xor i_4} \xor (i_1 \wedge \neg (\blu{i_0 \xor i_4})) \\
+    \end{align*}
+\end{frame}
+
+\newcommand{\tde}[0]{\red{t_{34}}}
+\newcommand{\tae}[0]{\blu{t_{04}}}
+\newcommand{\tbc}[0]{\grn{t_{12}}}
+
+\begin{frame}[t]
+    \frametitle{Substitution Layer}
+    17 operations
+    \begin{align*}
+        o_0 & = \tde \xor (i_1 \vee (\tae \xor i_2)) \\
+        o_1 & = \tae \xor (\tbc \vee (i_2 \xor i_3)) \\
+        o_2 & = \tbc \xor (i_3 \vee \neg i_4) \\
+        o_3 & = \tbc \xor (i_0 \vee \tde) \\
+        o_4 & = \tde \xor (i_1 \wedge \neg \tae) \\
+        \tae & = i_0 \xor i_4 \quad
+        \tbc = i_1 \xor i_2 \quad
+        \tde = i_3 \xor i_4 \\
+    \end{align*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Bitslicing}
+    \begin{itemize}
+        \item Need to run 64 S-boxes
+        \item Bitwise instructions run 32
+        \item 34 operations total
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Questions?}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Minimizing Register Usage}
+    Operation order
+    \begin{align*}
+        r_4 & = o_2 = t_{12} \xor (r_3 \vee \neg r_4) \\
+        r_3 & = o_1 = t_{04} \xor (t_{12} \vee (r_2 \xor r_3)) \\
+        r_2 & = o_0 = t_{34} \xor (r_1 \vee (r_2 \xor t_{04})) \\
+        r_1 & = o_4 = t_{34} \xor (r_1 \wedge \neg t_{04}) \\
+        \red{t_0} & = o_3 = t_{12} \xor (r_0 \vee t_{34}) \\
+    \end{align*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Minimizing Register Usage}
+    \begin{itemize}
+        \item Used 13 registers instead of 15
+        \item But: registers got shuffled
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Optimizing S-boxes}
+    \begin{itemize}
+        \item Find minimum operation count
+        \item Use a SAT solver
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Optimizing S-boxes}
+    \begin{center}
+        \begin{tabular}{c c}
+            Operations & Satisfiable \\ \hline
+            10 & N \\
+            11 & \\
+            \vdots \\
+            16 & \\
+            17 & Y \\
+        \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Questions?}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Linear Diffusion Layer}
+    \begin{alignat*}{3}
+        o_0 & = i_0 \xor (i_0 \ror \: & 19) & \xor (i_0 \ror \: & 28) \\
+        o_1 & = i_1 \xor (i_1 \ror \: & 61) & \xor (i_1 \ror \: & 39) \\
+        o_2 & = i_2 \xor (i_2 \ror \: &  1) & \xor (i_2 \ror \: &  6) \\
+        o_3 & = i_3 \xor (i_3 \ror \: & 10) & \xor (i_3 \ror \: & 17) \\
+        o_4 & = i_4 \xor (i_4 \ror \: &  7) & \xor (i_4 \ror \: & 41) \\
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{32-bit Rotate and Add}
+    \begin{enumerate}
+        \item Shift left
+        \item Shift right
+        \item Combine
+        \item Add
+    \end{enumerate}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Linear Diffusion Layer}
+    \begin{itemize}
+        \item 2 operations for $\ror$ and $\xor$
+        \item $\times 2$ to emulate with shifts
+        \item $\times 2$ for 64-bit
+        \item $\times 2$ per word
+        \item $\times 5$ for five words
+        \item 80 operations total
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Loop and Round Constant}
+    \begin{itemize}
+        \item Final round constant is \hex{4b}
+        \item Decreases by \hex{f} each round
+        \item Round constant = loop counter
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Loop and Round Constant}
+    \begin{enumerate}
+        \item Add round constant
+        \item Decrease
+        \item Compare and loop if not done
+    \end{enumerate}
+    \vfill
+    \begin{itemize}
+        \item 3 operations total
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Questions?}
+\end{frame}
+
+\begin{frame}[t]
+    \frametitle{Fixing Shuffled Registers}
+    Operation order
+    \begin{alignat*}{3}
+        r_0 & = r_2 \xor (r_2 \ror \: & 19) & \xor (r_2 \ror \: & 28) \\
+        r_2 & = r_4 \xor (r_4 \ror \: &  1) & \xor (r_4 \ror \: &  6) \\
+        r_4 & = r_1 \xor (r_1 \ror \: &  7) & \xor (r_1 \ror \: & 41) \\
+        r_1 & = r_3 \xor (r_3 \ror \: & 61) & \xor (r_3 \ror \: & 39) \\
+        r_3 & = \red{t_0} \xor (\red{t_0} \ror \: & 10) & \xor (\red{t_0} \ror \: & 17) \\
+    \end{alignat*}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Permutation Cycle Counts}
+    \begin{center}
+        \begin{tabular}{l c c}
+            Substitution layer & 34 & 34 \\
+            Linear diffusion layer & 80 & 80 \\
+            Loop and round constant & 3 & 4 \\ \hline
+            Total & 117 & 118
+        \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Register Usage}
+    \begin{center}
+        \begin{tabular}{l c}
+            Ascon state & 10 \\
+            Temporary & 3 \\
+            Shuffle registers & 2 \\
+            Current round constant & 1 \\
+            Final round constant & 1 \\ \hline
+            Total & 17
+        \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Relative Performance}
+    \begin{center}
+        \begin{tabular}{l c c c}
+            Reference implementation & 100\% \\
+            Big endian state & 116\% \\
+            Inner loop in assembly & 129\% \\
+        \end{tabular}
+    \end{center}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Questions?}
+\end{frame}
+
+\end{document}
