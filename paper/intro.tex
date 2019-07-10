@@ -17,7 +17,8 @@ to an encryption system manually, leading to fewer possibilities to make
 mistakes.
 
 Authenticated encryption has traditionally been implemented by combining
-privacy-only encryption with message authentication codes~\cite{aeadorder}. This
+privacy-only encryption with message authentication
+codes~\cite{aeadorder}~\cite{classicaead}. This
 combination turned out to be hard to make without introducing new
 vulnerabilities. In addition, performance suffers because two passes need to be
 made over the plaintext, one for encryption and one for authentication. To
@@ -55,3 +56,12 @@ architectures. Despite the fact that RISC-V extensions do not have licensing
 costs and have reduced development costs, chip manufacturing remains expensive,
 so fast software implementations remain important. We optimize the Ascon
 authenticated encryption system for the RISC-V instruction set architecture.
+
+\subsection{Related work}
+
+Although there is very little related work for software optimizations of crypto
+for RISC-V, there are a number of previous implementations of Ascon. Among
+others, it has been optimized on FPGAs~\cite{asconfpga} and the ARM
+Cortex-M3~\cite{asconm3} and optimization using ARM NEON was
+attempted~\cite{neon}. Some optimized software implementations have been
+benchmarked on various platforms as well~\cite{benchmarkpaper}.

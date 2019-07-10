@@ -1,13 +1,10 @@
 \section{Reproducability}
 
-\subsection{Reproducability using Nix}
-
 Nix~\cite{nix} is a functional package manager designed to make its packages
 highly reproducable. As a package manager, it cannot eliminate entropy from
-concurrency, and some other sources, so multiple builds of the same package are
+concurrency and some other sources, so multiple builds of the same package are
 not necessarily byte-for-byte identical. Instead, it tries to eliminate entropy
-by specifying almost all direct and less direct dependencies with high
-precision.
+by specifying almost all direct and indirect dependencies with high precision.
 
 Packages are specified by \emph{derivations}, which specify a shell script that
 builds the package, any relevant environment variables, and a list of sources
@@ -21,5 +18,6 @@ In order to make our results reproducable, we use Nix to specify precisely what
 compiler was used to compile the binaries for the board. We do this by creating
 a pseudo-package, which specifies dependencies, but no build instructions. The
 \texttt{nix-shell} command was designed to use this: It takes a package and
-starts a bash session with all dependencies injected into the PATH, in the same
-way it would when building the package.
+starts a bash session with all dependencies injected into the \texttt{PATH}, in
+the same way it would when building the package. The code used for this thesis
+is available online.\footnote{\url{https://github.com/Lucus16/ascon-riscv}}

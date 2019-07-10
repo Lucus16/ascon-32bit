@@ -112,6 +112,8 @@ data and return failure if it does not match. The behavior is the same, but such
 schemes allow incorrect implementations to go undetected more easily.
 
 \begin{figure}
+\caption{The following table specifies the symbols and notation used in this
+document.}
 \begin{center}
 \begin{tabular}{c l}
     \hex{1337} & hexadecimal number
@@ -123,8 +125,6 @@ schemes allow incorrect implementations to go undetected more easily.
     \\ $\mathcal{P}(S)$ & Set of all subsets of set $S$.
 \end{tabular}
 \end{center}
-\caption{The following table specifies the symbols and notation used in this
-document.}
 \label{notation}
 \end{figure}
 
@@ -316,17 +316,14 @@ word. It consists of a bitwise addition of the original state word with the same
 state word rotated by two different amounts. Each of the five state words uses
 different rotation amounts.
 
-% TODO: Expand Ascon permutation?
-
-\subsection{RISC-V}
-RISC-V~\cite{riscv} is a hardware instruction set architecture which aims to be
-completely open: Anyone is free to create custom variations and implementations.
-It is also designed to be modular: A basic RISC-V processor starts with just the
-base integer instruction set \texttt{I}, using either 32-bit or 64-bit machine
-words. Several extensions are available which offer different common processor
-features, such as support for floating point operations. Manufacturers can
-choose to implement any combination of these extensions and will usually pick
-extensions based on the intended application.
+\subsection{RISC-V} RISC-V~\cite{riscv} is a hardware instruction set
+architecture which aims to be completely open: Anyone is free to create custom
+variations and implementations. It is also designed to be modular: A basic
+RISC-V processor starts with just the base integer instruction set, using either
+32-bit or 64-bit machine words. Several extensions are available which offer
+different common processor features, such as support for floating point
+operations. Manufacturers can choose to implement any combination of these
+extensions and will usually pick extensions based on the intended application.
 
 In this thesis, we will use the HiFive1 development board created by SiFive. It
 features a \texttt{RV32IMAC} processor. The \texttt{RV32I} stands for the RISC-V
@@ -365,12 +362,9 @@ arithmetic operations and it only has about 40 instruction in the base integer
 instruction set, all of which do only one thing. Figure~\ref{opcodes} shows the
 eight instructions needed for the inner loop of Ascon.
 
-% TODO: instructions specify destination first
-% TODO: macro syntax
-% TODO: Check for other missing RISC-V info
-
 \begin{figure}
-\begin{tabular}{l p{0.75\linewidth}}
+\caption{The RISC-V instructions used in the inner loop of Ascon.}
+\begin{tabular}{l p{0.76\linewidth}}
        \texttt{and r, a, b} & Store the bitwise and of registers~\texttt{a} and
         \texttt{b} in register~\texttt{r}.
     \\ \texttt{or r, a, b} & Store the bitwise or of registers~\texttt{a} and
@@ -389,8 +383,5 @@ eight instructions needed for the inner loop of Ascon.
     \\ \texttt{bne a, b, l} & Jump to the label~\texttt{l} if the value of
         register~\texttt{a} is not the same as the value of register~\texttt{b}.
 \end{tabular}
-
-\caption{The RISC-V instructions used in the inner loop of Ascon.}
-
 \label{opcodes}
 \end{figure}
