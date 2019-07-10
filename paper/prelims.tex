@@ -29,17 +29,18 @@ different number is used every time, the resulting ciphertexts will also differ.
 
 This number is called the \emph{nonce}, short for number used once. If it is
 used more than once, unauthorized parties may be able to infer information about
-the difference or similarity of the messages it was used for. Usually, this
-number is made from a sufficiently large amount of random bits that the chance
-of it occuring twice is negligable. When it is chosen randomly, it must be
-attached to the ciphertext unencrypted, as decryption will fail without it.
+the difference or similarity of the messages it was used for. One option to
+ensure uniqueness in practice is to use random numbers that are sufficiently
+large to make the chance of duplicates negligable. When it is chosen randomly,
+it must be attached to the ciphertext unencrypted, as decryption will fail
+without it.
 
 A counter can also be used to generate unique nonces, if it is sufficiently
 large that it will never overflow within its lifetime. This has the advantage
 that a good source of randomness is not needed, and the disadvantage that the
-current count must be kept track of and synchronized between uses. To reduce
-synchronization overhead, some systems reserve ranges of counter values ahead of
-time.
+current count must be kept track of and synchronized between uses. If all
+messages are sent synchronously and messages cannot be lost, this can be as
+simple as attaching the current counter to each message.
 
 If there is no space to attach the nonce to the ciphertext, it is not possible
 to use a random nonce. In this case, information that is available during both
@@ -63,9 +64,9 @@ message has been changed, is called \emph{integrity}.
 Unauthorized parties may also attempt to construct messages from scratch.
 Because the key is needed for encryption, they will be unable to encrypt a
 specific plaintext, however, they will be able to send specific ciphertexts,
-even if they don't know what plaintexts corresponds to them. In order to prevent
-this, it is desirable for the receiving party to be able to verify that a
-message comes from an authorized party. Together with integrity, this property
+even if they do not know what plaintexts corresponds to them. In order to
+prevent this, it is desirable for the receiving party to be able to verify that
+a message comes from an authorized party. Together with integrity, this property
 is called \emph{authenticity}. Encryption that provides both confidentiality and
 authenticity to the plaintext is called \emph{authenticated encryption} or
 \emph{AE}.
@@ -89,22 +90,26 @@ defined as information that requires authentication but not confidentiality.
 An authenticated encryption scheme that supports this is called
 \emph{authenticated encryption with associated data} or \emph{AEAD}.
 
-Just like nonces, \emph{associated data} is used during encryption to modify the
-resulting ciphertext and is needed during decryption in order to revert that
-modification. It does not need to be stored or sent with the ciphertext if it
-can be inferred during both encryption and decryption.
+In some encryption schemes, associated data is used during encryption to modify
+the resulting ciphertext and is needed during decryption in order to revert that
+modification. In these cases, because the correct associated data is needed
+during decryption, it prevents messages from being decrypted using the wrong
+associated data. In other schemes, associated data only affects the
+authentication tag and it is the responsibility of the implementation to reject
+inputs with incorrect authentication tags.
 
-Because the correct associated data is needed during decryption, it prevents
-messages from being decrypted using the wrong associated data. If the associated
-data is inferred from the context, it can prevent encrypted data from being
-decrypted in the wrong context. For example, this prevents two encrypted records
-containing positive and negative information respectively from being swapped
-between contexts specifying different persons.
+The associated data can be sent or stored together with the ciphertext, but in
+some cases it can also be inferred from other data during encryption and
+decryption. In those cases, sending or storing it is not necessary. If the
+associated data is inferred from the context, it can prevent encrypted data from
+being decrypted in the wrong context. For example, this prevents two encrypted
+records containing positive and negative information respectively from being
+swapped between contexts specifying different persons.
 
-Note that some encryption schemes don't need the associated data for decryption.
-Correct implementations of these will still check the associated data and return
-failure if it does not match. The behavior is the same, but such schemes allow
-incorrect implementations to go undetected more easily.
+Note that some encryption schemes do not need the associated data for
+decryption. Correct implementations of these will still check the associated
+data and return failure if it does not match. The behavior is the same, but such
+schemes allow incorrect implementations to go undetected more easily.
 
 \begin{figure}
 \begin{center}
@@ -113,9 +118,9 @@ incorrect implementations to go undetected more easily.
     \\ $\bot$ & verification failure
     \\ $x \cat y$ & concatenation of bitstrings $x$ and $y$
     \\ $x \xor y$ & bitwise addition of bitstrings $x$ and $y$
-    \\ $x \ror{32} n$ & 32-bit word $x$ rotated right by $n$ bits
-    \\ $x \ror{64} n$ & 64-bit word $x$ rotated right by $n$ bits
+    \\ $x \ror n$ & 64-bit word $x$ rotated right by $n$ bits
     \\ $\mathbf{2}^l$ & set of messages of $l$ bits
+    \\ $\mathcal{P}(S)$ & Set of all subsets of set $S$.
 \end{tabular}
 \end{center}
 \caption{The following table specifies the symbols and notation used in this
@@ -159,10 +164,12 @@ The remaining properties of AEAD systems, authenticity and confidentiality, must
 be defined with respect to a \emph{security parameter}. The security parameter
 specifies how much effort is required to break the security properties of the
 system. The security parameter is expressed in bits and is equivelant to the
-2-log of the number of operations needed to break the security claim. A property
-holds when no algorithm exists that can break it in fewer operation than
-specified by its security parameter. We say that no \emph{efficient} algorithm
-exists.
+2-log of the number of operations needed to break the security claim.
+
+A security property holds when no algorithm exists that can break it in fewer
+operation than specified by its security parameter. We say that no
+\emph{efficient} algorithm exists. These algorithms implicitly have access to
+all public knowledge.
 
 We can now define the property of authenticity. First, we define $V_k$ to be the
 set of valid decryption inputs for key $k$.
@@ -200,24 +207,26 @@ $m$. $I(d, m)$ represents the information in bits that $d$ has about $m$.
 
 \begin{equation}
     \forall l \in \mathbb{N}, m \in \mathbf{2}^l, d \in D(\mathbf{2}^l).\quad
-    I(d, m) = \frac{d(m)}{u_l(m)}
+    I(d, m) = \textrm{log}_2 \frac{d(m)}{u_l(m)}
 \end{equation}
 
 An encryption scheme provides confidentiality if no efficient algorithm exists
 that determines knowledge about a message given its decryption inputs and all
-prior public knowledge, which can include many other valid decryption inputs.
+prior public knowledge. This public knowledge can include many other valid
+decryption inputs, as well as decryption inputs with their corresponding
+plaintexts, but with different nonces.
 
 \begin{equation}
-    \dots
+    \nexists \mathcal{A}.\quad \forall k, n, a, m.\quad
+    I(\mathcal{A}(k, n, a, \mathcal{E}(k, n, a, m)), m) > 0
 \end{equation}
 
-% \begin{equation}
-%     \nexists \mathcal{A}.\quad \forall k, n, a, c, t.\quad
-%     \forall s \in \mathcal{P}(V_k).\quad
-% \end{equation}
-
-% TODO: Confidentiality No algorithm distinguishes between two ciphertexts without
-% the correct key, nonces, tags, associated data
+It should be noted that the formal definitions given above are not completely
+accurate. For example, it is hard to formalize the tradeoffs between
+computational power and odds of succes for an attack. It is also hard to
+formalize all the public data that attacking algorithms can be based on. There
+are entire books dedicated to formalizing these properties so the formalizations
+above should be taken with a grain of salt.
 
 \subsection{Ascon internals}
 
@@ -361,7 +370,7 @@ eight instructions needed for the inner loop of Ascon.
 % TODO: Check for other missing RISC-V info
 
 \begin{figure}
-\begin{tabular}{l p{0.77\linewidth}}
+\begin{tabular}{l p{0.75\linewidth}}
        \texttt{and r, a, b} & Store the bitwise and of registers~\texttt{a} and
         \texttt{b} in register~\texttt{r}.
     \\ \texttt{or r, a, b} & Store the bitwise or of registers~\texttt{a} and

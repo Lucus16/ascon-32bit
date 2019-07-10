@@ -14,7 +14,7 @@
 \newcommand{\hex}[1]{$\mathtt{#1}_h$}
 \newcommand{\xor}[0]{\oplus}
 \newcommand{\cat}[0]{\parallel}
-\newcommand{\ror}[1]{\ggg_{#1}}
+\newcommand{\ror}[0]{\ggg}
 
 \definecolor{comment}{gray}{0.4}
 
@@ -48,21 +48,20 @@
 
 \begin{abstract}
 
-Ascon is a family of authenticated encryption schemes which appears in the
-final portfolio of the CAESAR competition and as a candidate in the NIST
-lightweight cryptography competition. It uses a simple permutation for its
-inner loop that is designed to have a straightforward and efficient
-implementation.
+Ascon is a family of authenticated encryption schemes which appears in the final
+portfolio of the CAESAR competition and as a candidate in the NIST lightweight
+cryptography competition. It uses a cryptographic permutation as main building
+block that is designed to have a straightforward and efficient implementation.
 
 RISC-V is a hardware instruction set architecture which is completely
-open-source and based RISC principles. It offers a small and simple
-instruction set with little space for optimization.
+open-source and based RISC principles. It offers a small and simple instruction
+set with little space for optimization.
 
-We optimize the Ascon inner loop for the RISC-V RV32IMAC architecture. We
+We optimize the Ascon's permutation for the RISC-V RV32IMAC architecture. We
 find improvements over the reference implementation in several parts and get
-very close to the theoretical optimal speed. At the same time, we keep
-register usage to a minimum to allow our techniques to be ported to other
-architectures easily.
+very close to the theoretical optimal speed. At the same time, we keep register
+usage to a minimum to allow our techniques to be ported to other architectures
+easily.
 
 \end{abstract}
 

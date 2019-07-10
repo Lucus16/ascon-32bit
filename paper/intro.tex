@@ -17,12 +17,12 @@ to an encryption system manually, leading to fewer possibilities to make
 mistakes.
 
 Authenticated encryption has traditionally been implemented by combining
-privacy-only encryption with message authentication codes. This combination
-turned out to be hard to make without introducing new vulnerabilities. In
-addition, performance suffers because two passes need to be made over the
-plaintext, one for encryption and one for authentication. To resolve this,
-cryptographers have called for new primitives that integrate all desirable
-properties.
+privacy-only encryption with message authentication codes~\cite{aeadorder}. This
+combination turned out to be hard to make without introducing new
+vulnerabilities. In addition, performance suffers because two passes need to be
+made over the plaintext, one for encryption and one for authentication. To
+resolve this, cryptographers have called for new primitives that integrate all
+desirable properties.
 
 This call has taken the shape of several competitions, where a diverse set of
 teams each publish a family of new primitives, followed by public analysis of

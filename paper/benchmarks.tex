@@ -4,7 +4,7 @@ In this section, we will look at the expected and measured performance of the
 permutation loop in detail. In principle, because this is the innermost loop,
 the optimizations done here should have the most effect. We focus on the inner
 loop and leave the outer loop for future work as it is relatively easy to
-optimize, and therefor not as interesting.
+optimize, and therefore not as interesting.
 
 \subsection{Register usage}
 
@@ -37,6 +37,7 @@ loading or storing anything but the inputs and outputs of the algorithm.
 Figure~\ref{registers} gives an overview of these allocations.
 
 \begin{figure}
+\caption{Register allocation during the permutation}
 \begin{center}
 \begin{tabular}{l c}
 Purpose & Registers used \\ \hline
@@ -48,7 +49,6 @@ Final round constant & 1 \\ \hline
 Total & 17
 \end{tabular}
 \end{center}
-\caption{Register allocation during the }
 \label{registers}
 \end{figure}
 
@@ -61,8 +61,7 @@ to prove this is the smallest number possible, but the method we used was not
 sufficiently powerful.
 
 Because we can only operate on machine words and the Ascon state words are twice
-the size of a machine word, so we expect the substitution layer to take 34
-cycles.
+the size of a machine word, we expect the substitution layer to take 34 cycles.
 
 As described in the section on optimization, the linear diffusion layer must
 take at least 80 cycles. We give an implementation that reaches this minimum,
@@ -110,14 +109,18 @@ SiFive does not specify clear cycle counts for each instruction.
 
 Figure~\ref{asconbench} shows the resulting increase in speed for encryption and
 decryption across the different implementations. To encrypt 4096 bytes using
-Ascon128, it is first padded to 5004 bytes and then split into 513 blocks. To
+Ascon128, it is first padded to 4104 bytes and then split into 513 blocks. To
 separate these blocks, 6 rounds of the permutation are run between them, 512
 times in total. Initialization and finalization cost another 12 rounds each, for
 a total of 3096 rounds. These rounds cost 365328 cycles, before branch
 mispredictions. This means encryption spends 66\% of its time on the Ascon
-permutation and decryption spends 76\% of its time on the permutation.
+permutation and decryption spends 76\% of its time on the permutation. This
+difference is due to the time spent copying and padding the plaintext during
+encryption, which is not needed during decryption.
 
 \begin{figure}
+\caption{Number of cycles each phase of an Ascon permutation round takes after
+the branch predictor has stabilized.}
 \begin{center}
 \begin{tabular}{l c c}
 Phase & Expected & Measured \\ \hline
@@ -127,8 +130,6 @@ Addition of constant and loop & 3 & 4 \\ \hline
 Total & 117 & 118
 \end{tabular}
 \end{center}
-\caption{Number of cycles each phase of an Ascon permutation round takes after
-the branch predictor has stabilized.}
 \label{roundbench}
 \end{figure}
 

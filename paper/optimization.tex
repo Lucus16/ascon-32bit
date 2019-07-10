@@ -140,7 +140,7 @@ used.
 
 The state words are 64 bits in size, so 64-bit rotations are used. On most
 64-bit architectures, this can be done with just one instruction, but 32-bit
-architectures generally don't have 64-bit rotate instructions.
+architectures generally do not have 64-bit rotate instructions.
 
 The most straightforward method of simulating a 64-bit rotate instruction is
 using shifts. By combining a left shift and a right shift, all bits of a single
@@ -232,7 +232,7 @@ This means we can compute it based on the previous round with one subtraction.
 \subsection{Full round}
 
 The round constant for the initial round is based only on the number of rounds
-that will be run in that invocation of the permutation. Therefor, it can be a
+that will be run in that invocation of the permutation. Therefore, it can be a
 parameter to the permutation which is constant in every location where it is
 called. Because the constant is just one byte in size, the initial constant can
 be created with just one move immediate instruction.
